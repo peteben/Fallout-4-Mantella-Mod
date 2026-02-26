@@ -1,6 +1,5 @@
 Scriptname MantellaRepository extends Quest Conditional
 
-Import MantellaLauncher
 ;keycode properties
 int property textkeycode auto
 int property textAndVisionKeycode auto
@@ -13,7 +12,10 @@ MantellaConversation property conversation auto
 MantellaConstants property ConstantsScript auto
 Quest Property MantellaVisibleCollectionQuest Auto 
 RefCollectionAlias Property MantellaVisibleNPCRefCollection  Auto
-Quest Property MantellaNPCCollectionQuest Auto 
+Quest Property MantellaNPCCollectionQuest Auto
+Quest Property MantellaNearbyActors Auto
+RefCollectionAlias Property MantellaNearbyActorsCollection  Auto
+
 RefCollectionAlias Property MantellaNPCCollection  Auto
 
 
@@ -22,9 +24,16 @@ bool property endFlagMantellaConversationOne auto
 string property currentFO4version auto
 bool property isFO4VR auto Conditional
 bool property microphoneEnabled auto Conditional
+bool property useHotkeyToStartMic auto
+bool property showReminderMessages auto
+
 bool property radiantEnabled auto
 float property radiantDistance auto
 float property radiantFrequency auto
+
+string property playerCharacterDescription1 auto
+string property playerCharacterDescription2 auto
+bool property playerCharacterUsePlayerDescription2 auto
 
 ;vision parameters
 bool property hideVisionMenu auto Conditional
@@ -90,7 +99,11 @@ bool property playerTrackingCripple auto Conditional
 bool property playerTrackingHealTeammate auto Conditional
 
 bool property allowTrackPlayerState auto Conditional
+bool property playerTrackingOnTimeChange auto
+bool property playerTrackingOnWeatherChange auto
 
+
+int property worldID auto
 
 ;variables below for Mantella Target tracking
 bool property targetTrackingItemAdded auto 
@@ -125,6 +138,7 @@ ActorValue property RadsAV auto
 float radiationToHealthRatio = 0.229
 Actor property CrosshairActor auto
 int CleanupconversationTimer=2
+int property HttpPort auto
 
 ;Callback variables for SimpleTextField
 ScriptObject CBscript =  none
@@ -178,7 +192,7 @@ EndFunction
 
 Function RestartMantellaExe()
     Debug.notification("Attempting to restart Mantella.exe")
-    LaunchMantellaExe() 
+    MantellaPlugin.LaunchMantellaExe() 
 Endfunction
 
 Event Ontimer( int TimerID)
@@ -575,12 +589,17 @@ endEvent
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Event Onkeydown(int keycode)
-    bool menuMode = TopicInfoPatcher.isMenuModeActive()
+    bool menuMode = MantellaPlugin.isMenuModeActive()
     if !menuMode
         if keycode == startConversationkeycode
             if allowCrosshairTracking
-                float [] Actorxyz = TopicInfoPatcher.GetLastActorCoords()
-                CrosshairActor = Game.FindClosestActor(Actorxyz[0], Actorxyz[1], Actorxyz[2], 20.0)
+                ; float [] Actorxyz = MantellaPlugin.GetLastActorCoords()
+                ; CrosshairActor = Game.FindClosestActor(Actorxyz[0], Actorxyz[1], Actorxyz[2], 20.0)
+                int actorID = MantellaPlugin.GetLastCrosshairActorID()
+                if actorID == 0
+                    return
+                Endif
+                CrosshairActor = Game.GetForm(actorID) as Actor
                 Debug.Notification("Crosshair actor is: " + CrosshairActor.GetDisplayName())
             endif
             if CrosshairActor != none
@@ -768,6 +787,7 @@ Function TIM_Set_HTTP_Port(string HTTP_port)
             return
         Endif
         ConstantsScript.HTTP_PORT = (HTTP_port as int)
+        HttpPort = ConstantsScript.HTTP_PORT
     endif
 EndFunction
     
@@ -778,7 +798,7 @@ EndFunction
 
 Function GenerateMantellaVision()
     hasPendingVisionCheck=true
-    TopicInfoPatcher.TakeScreenShot("Mantella_Vision.jpg", 0) 
+    MantellaPlugin.TakeScreenShot("Mantella_Vision.jpg", 0) 
     if allowVisionHints
         ScanCellForActorsFilteredLOS()
     endif   
@@ -800,6 +820,23 @@ EndFunction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   NPC array management    ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;Get list of nearby actors not involved in current conversation
+Actor[] Function ScanNearbyActors()
+    MantellaNearbyActors.start()
+    int countNearbyActors = MantellaNearbyActorsCollection.GetCount()
+    Debug.TraceUser("MC", "Scanning for nearby actors... Found " + countNearbyActors)
+    Actor[] nearbyActors = new Actor[countNearbyActors]
+    int i = 0
+    while (i < nearbyActors.Length)
+        nearbyActors[i] = MantellaNearbyActorsCollection.GetAt(i) as Actor
+        i = i + 1
+    endwhile
+    MantellaNearbyActors.stop()
+    return nearbyActors
+Endfunction
+
+
 Function ScanCellForActorsFilteredLOS() 
     Actor playerRef = Game.GetPlayer()
     Actor[] ActorsInCell = new Actor[0]
@@ -859,41 +896,6 @@ Function UpdateFunctionInferenceNPCArrays(Actor[] ActorArray)
     MantellaFunctionInferenceActorDistanceList = currentDistanceArrayToString(currentDistanceArray)
     MantellaFunctionInferenceActorIDsList = ActorsArrayToFormIDString(MantellaFunctionInferenceActorList)
 Endfunction
-
-
-
-;/ DEPRECATED TO REMOVE SUP_F4SE DEPENDENCIES
-Actor[] Function ScanCellForActors(bool filteredByPlayerLOS, bool updateProperties) 
-    ;if filteredByPlayerLOS is turned on this only returns an array of actors visible to the player
-    ;if updateProperties is turned on it will fill the properties of ActorsInCellArray & currentDistanceArray with the scanned actors names and distances
-    ;if updateProperties is turned off it will return the values of the actors in array form
-    Actor playerRef = Game.GetPlayer()
-    Actor[] ActorsInCellProcessed = new Actor[0]
-    Actor[] ActorsInCell = new Actor[0]
-    float[] currentDistanceArrayProcessed = new float[0]
-    ActorsInCell = SUP_F4SEScanCellMethodSelector(playerRef)
-    if filteredByPlayerLOS
-        int i
-            While i < ActorsInCell.Length
-                Actor currentActor = ActorsInCell[i]
-                if playerRef.HasDetectionLOS (currentActor)
-                    float currentDistance = playerRef.GetDistance(currentActor)
-                 if currentActor.GetDisplayName()!="" && currentDistance<5000 && currentActor != PlayerRef
-                        ActorsInCellProcessed.add(ActorsInCell[i])
-                    currentDistanceArrayProcessed.add(currentDistance)
-                    endif
-                endif
-                i += 1
-            EndWhile
-    endif
-    if updateProperties
-        ActorsInCellArray=ActorsArrayToString(ActorsInCellProcessed)
-        VisionDistanceArray = currentDistanceArrayToString(currentDistanceArrayProcessed)
-    else
-    return ActorsInCell
-    endif
-Endfunction
-/;
 
 String Function ActorsArrayToString (Actor[] ActorArray)
     string StringOutput
@@ -984,29 +986,7 @@ Function RemoveFactionFromActors(Actor[] ActorArray, faction FactionToRemove)
         i += 1
     EndWhile
 Endfunction
-;/
-Function ScanCellForActors(bool filtered) ;to implement to give cues on NPC locations
-    Actor playerRef = Game.GetPlayer()
-    Actor[] ActorsInCell
-    String[] FilteredActorsInCellNames = new String[0]
-    Float[] FilteredActorsInCellDistanceFromPlayer = new Float[0]
-    ActorsInCell = SUP_F4SE.GetActorsInCell(playerRef.GetParentCell(), -1)
-    int i
-    int FilteredActorCount
-        While i < ActorsInCell.Length
-            Actor currentActor = ActorsInCell[i]
-            if playerRef.HasDetectionLOS (currentActor)
-                float currentDistance = playerRef.GetDistance(currentActor)
-                if currentActor.GetDisplayName()!="" && currentDistance<5000
-                    FilteredActorsInCellNames.Add(currentActor.GetDisplayName())
-                    FilteredActorsInCellDistanceFromPlayer.Add(currentDistance)
-                    FilteredActorCount += 1
-                endif
-            endif
-            i += 1
-        EndWhile
-Endfunction
-/;
+
 String function ConvertActorAndDistanceArrayToString(Actor[] ActorNamesArray, Float[] DistanceArray)
     int k
     string actorList
@@ -1138,7 +1118,7 @@ Function GetTextInput(ScriptObject akReceiver, string asFunctionName, string asT
 EndFunction
 
 string function SUPF4SEformatText(string TextToFormat)
-    TextToFormat = TopicInfoPatcher.StringRemoveWhiteSpace(TextToFormat)
+    TextToFormat = MantellaPlugin.StringRemoveWhiteSpace(TextToFormat)
     return TextToFormat
 endfunction
 

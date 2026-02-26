@@ -346,12 +346,9 @@ endEvent
 Event OnItemEquipped(Form akBaseObject, ObjectReference akReference)
     if repository.playerTrackingOnObjectEquipped
         string itemEquipped = akBaseObject.getname()
-        string itemenchant = akBaseObject.GetEnchantment().getname()
-        if itemenchant != "" ;filtering out enchantments to avoid spamming the LLM with confusing feedback
-            ;Debug.MessageBox("The player equipped " + itemEquipped)
-            if itemEquipped != "Mantella"
-                conversation.AddIngameEvent("The player equipped " + itemEquipped + ".")
-            endif
+        ;Debug.MessageBox("The player equipped " + itemEquipped)
+        if itemEquipped != "Mantella"
+            conversation.AddIngameEvent("The player equipped " + itemEquipped + ".")
         endif
     endif
 endEvent

@@ -17,6 +17,8 @@ Faction Property MantellaFunctionWhoIsSourceTargeting Auto
 FormList Property Participants auto
 Quest Property MantellaConversationParticipantsQuest auto
 SPELL Property MantellaIsTalkingSpell Auto
+MantellaEquipmentDescriber Property EquipmentDescriber auto
+
 Spell Property MantellaIsUsingItem auto ;Used to track if a NPC is using attempting to use spell that is used a signal to signal that the NPC is using an item
 bool Property UseSimpleTextField = true auto
 Potion Property StimpackItem auto
@@ -24,16 +26,11 @@ Potion Property RadawayItem auto
 Quest Property MantellaNPCCollectionQuest Auto 
 RefCollectionAlias Property MantellaNPCCollection  Auto
 ReferenceAlias Property Narrator Auto
+MantellaInterface property EventInterface Auto
+GlobalVariable Property GameDaysPassed Auto
+MantellaListenerScript Property Listener Auto
 
 
-CustomEvent MantellaConversation_Action_mantella_reload_conversation
-CustomEvent MantellaConversation_Action_mantella_end_conversation
-CustomEvent MantellaConversation_Action_mantella_remove_character
-CustomEvent MantellaConversation_Action_mantella_npc_offended
-CustomEvent MantellaConversation_Action_mantella_npc_forgiven
-CustomEvent MantellaConversation_Action_mantella_npc_follow
-CustomEvent MantellaConversation_Action_mantella_npc_inventory
-CustomEvent DelayedCustomEventTrigger
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;           Globals           ;
@@ -41,10 +38,17 @@ CustomEvent DelayedCustomEventTrigger
 
 String[] _ingameEvents
 String[] _extraRequestActions
+int[] _actorHandles = None
+int _contextHandle = 0
+bool isVR = false
+
 bool _does_accept_player_input = false
 bool _hasBeenStopped
 bool _allowTopicSwitching = true
-int _PlayerTextInputTimer
+int _PlayerTextInputTimer = 11 const
+int _repeatingMessageTimer = 1412 const
+
+
 string _PlayerTextInput
 bool _useNarrator = True
 Faction CompanionFaction
@@ -52,73 +56,74 @@ Faction SettlerFaction
 Faction PlayerFaction
 actor[] CurrentFunctionTargetArray
 int CurrentFunctionTargetPointer
+bool microphoneEnabledLastKnownStatus = false
 
 
 VoiceType MantellaVoice
-Topic MantellaTopic
 Actor lastSpokenTo = none
 Actor _lastNpcToSpeak = none
 Actor property playerRef auto
 
 Actor CurrentFunctionTargetNPC ;should be remove since actions can have multiple sources with multiple targets now.
 bool _isTalking = false
-int HttpTimeout
-int _HttpPollTimer = 12 const
-float HttpPeriod = 0.2
-bool property HttpPolling = false auto             ; polling mode, used by VR
-bool PollTimerActive
 bool _shouldRespond = true
 int _lastTopicInfo = 0
+string lineToSpeakError = "Error: No line transmitted for actor to speak" const
+Actor[] _cachedNearbyActors = None
+bool _waitingForActionResponse = true
+int _actionResponseTimeout = 0
+bool _actorsUpdated = false
+string _lastSpeakerName = ""
+string _repeatingMessage = ""
+string _location = ""
+int _initialTime = 0
 
-int _delayedHandle
-string[] _delayedActionIdentifier
-actor[] _delayedSpeaker 
-string[] _delayedlineToSpeak
-
-;Ingame AI PackageManagement variables, used to track the position of an actor and reset their AI package in case they get stuck in the same place
-
-int RestartLootTimer = 200 ;Reserving 200 to 204
-float StoredActorPositionX
-float StoredActorPositionY
-float StoredActorPositionZ
-Actor trackedPositionActor
-Struct StoredActorData
-    float PositionX
-    float PositionY
-    float PositionZ
-    Actor ActorRef
-EndStruct
-StoredActorData[] CurrentStoredParticipantData
-
-int CurrentStoredParticipantDataPointer
 bool SettingsSaved = false
 bool SettingsApplied = false
 
-event OnInit()
-    _PlayerTextInputTimer = 11
-    _ingameEvents = new String[0]
-    _extraRequestActions = new String[0]    
-    MantellaTopic = Game.GetFormFromFile(0x01ED1, "mantella.esp") as Topic
+Function RegisterForConversationEvents()
+    RegisterForExternalEvent("HttpReplyReceived", "OnHttpReplyReceived")
+    RegisterForExternalEvent("HttpErrorReceived", "OnHttpErrorReceived")
+    RegisterForExternalEvent(EventInterface.EVENT_ACTIONS_PREFIX + mConsts.ACTION_RELOADCONVERSATION,"OnReloadConversationActionReceived")
+    RegisterForExternalEvent(EventInterface.EVENT_ACTIONS_PREFIX + mConsts.ACTION_ENDCONVERSATION,"OnEndConversationActionReceived")
+    RegisterForExternalEvent(EventInterface.EVENT_ACTIONS_PREFIX + mConsts.ACTION_REMOVECHARACTER,"OnRemoveCharacterActionReceived")
+    RegisterForExternalEvent(EventInterface.EVENT_ADD_EVENT,"OnAddEventReceived")
+    RegisterForExternalEvent(EventInterface.EVENT_ACTION_RESPONSE_COMPLETED,"OnActionResponseCompleted")
+EndFunction
+
+function SetGameRefs()
+    playerRef = game.getplayer()
+    CompanionFaction = Game.GetForm(0x000023C01) as Faction
+    SettlerFaction = Game.GetForm(0x000337F3) as Faction
+    PlayerFaction = Game.GetForm(0x0001C21C) as Faction
     MantellaVoice = Game.GetFormFromFile(0x2F7A0, "mantella.esp") as VoiceType
+endfunction
+
+event OnInit()
+    _ingameEvents = new String[0]
+    _extraRequestActions = new String[0]
+    Debug.OpenUserLog("MC")
+    Debug.TraceUser("MC", "OnInit Conversation" )
+    
     SetGameRefs()
     SaveSettings()
-    repository.NPCAIPackageSelector=-1
     if !UI.isMenuRegistered(SimpleTextField.GetMenuName())
         SimpleTextField:Program.GetProgram().OnQuestInit()              ; Make sure SimpleTextField is initialized
     Endif
+
+    RegisterForConversationEvents()
+    Debug.TraceUser("MC", "OnInit finished" )
     ;repository.microphoneEnabled = repository.isFO4VR
 endEvent
 
 ;Get some important variables set before anything else starts
 Function OnLoadGame()
-    HttpPolling = repository.isFO4VR
-    if !HttpPolling
-        RegisterForKey(0x97)
-        Debug.Notification("Interrupt mode")
-    Else
-        UnregisterForKey(0x97)
-        Debug.Notification("Polling mode")
-    EndIf
+    Debug.OpenUserLog("MC")
+    Debug.TraceUser("MC", "OnLoadGame" )
+    isVR = repository.isFO4VR
+
+    RegisterForConversationEvents()
+    Debug.TraceUser("MC", "OnLoadGame finished" )
 EndFunction
 
 
@@ -127,10 +132,7 @@ EndFunction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 function StartConversation(Actor[] actorsToStartConversationWith)
-    if(actorsToStartConversationWith.Length > 2)
-        Debug.Notification("Can not start conversation. Conversation is already running.")
-        return
-    elseIf(actorsToStartConversationWith.Length < 2)
+    If(actorsToStartConversationWith.Length < 2)
         Debug.Notification("Not enough characters to start a conversation")
         return
     endIf
@@ -139,43 +141,35 @@ function StartConversation(Actor[] actorsToStartConversationWith)
         Debug.MessageBox("Mantella conversation started! NPC will speak first.")
         EndIf
 
-    int handle = F4SE_HTTP.createDictionary()
-    ;F4SE_HTTP.setString(handle, mConsts.KEY_REQUESTTYPE, mConsts.KEY_REQUESTTYPE_INIT)
+    int handle = MantellaPlugin.createDictionary()
+    MantellaPlugin.setString(handle, mConsts.KEY_REQUESTTYPE, mConsts.KEY_REQUESTTYPE_INIT)
     ; send request to initialize Mantella settings (set LLM connection, start up TTS service, load character_df etc) 
     ; while waiting for actor info and context to be prepared below
-    ;sendHTTPRequest(handle, mConsts.HTTP_ROUTE_MAIN, mConsts.KEY_REQUESTTYPE_INIT)
-
-    _delayedHandle=0
-    _delayedActionIdentifier = new String[100]
-    _delayedSpeaker = new Actor[100]
-    _delayedlineToSpeak = new String[100]
-    _hasBeenStopped = false
-    _ingameEvents = new string[0]
-    _extraRequestActions = new string[0]
-
-    CurrentStoredParticipantData = new StoredActorData[5]
-    int i = 0
-    while i < CurrentStoredParticipantData.Length
-        CurrentStoredParticipantData[i] = new StoredActorData
-        i += 1
-    endWhile
-    CurrentStoredParticipantDataPointer = 0
-
-    CurrentFunctionTargetArray = new Actor[5]
-    CurrentFunctionTargetPointer = 0
-    repository.isAParticipantInteractingWithGroundItems = false
+    sendHTTPRequest(handle, mConsts.HTTP_ROUTE_MAIN, mConsts.KEY_REQUESTTYPE_INIT)
 
     AddActors(actorsToStartConversationWith)
 
-    if repository.microphoneEnabled
-        F4SE_HTTP.setString(handle, mConsts.KEY_INPUTTYPE, mConsts.KEY_INPUTTYPE_MIC)
-    Else
-        F4SE_HTTP.setString(handle, mConsts.KEY_INPUTTYPE, mConsts.KEY_INPUTTYPE_TEXT)
-    endIf
-
-    F4SE_HTTP.setString(handle, mConsts.KEY_REQUESTTYPE, mConsts.KEY_REQUESTTYPE_STARTCONVERSATION)
+    MantellaPlugin.setString(handle, mConsts.KEY_REQUESTTYPE, mConsts.KEY_REQUESTTYPE_STARTCONVERSATION)
+    MantellaPlugin.setString(handle, mConsts.KEY_STARTCONVERSATION_WORLDID, PlayerRef.GetDisplayName() + repository.worldID)
+    BuildContext(true)
     AddCurrentActorsAndContext(handle)
+
+    if repository.microphoneEnabled
+        if repository.useHotkeyToStartMic
+            MantellaPlugin.setString(handle, mConsts.KEY_INPUTTYPE, mConsts.KEY_INPUTTYPE_PTT)
+        else
+            MantellaPlugin.setString(handle, mConsts.KEY_INPUTTYPE, mConsts.KEY_INPUTTYPE_MIC)
+        EndIf
+    Else
+        MantellaPlugin.setString(handle, mConsts.KEY_INPUTTYPE, mConsts.KEY_INPUTTYPE_TEXT)
+    endIf
+    microphoneEnabledLastKnownStatus = repository.microphoneEnabled
+
     sendHTTPRequest(handle,mConsts.HTTP_ROUTE_MAIN, mConsts.KEY_REQUESTTYPE_STARTCONVERSATION)
+    MantellaPlugin.SendMantellaEvent(EventInterface.EVENT_CONVERSATION_STARTED, playerRef, "Start conversation", 101)
+
+    ;MantellaVanillaDialogue.notifyConversationStart()
+
     ApplySettings()
 endFunction
 
@@ -208,21 +202,27 @@ Topic Function GetTopicToUse(int transmittedID)
 EndFunction
 
 
-function ContinueConversation(int handle)
-    string nextAction = F4SE_HTTP.getString(handle, mConsts.KEY_REPLYTYPE, "Error: Did not receive reply type")
-    ; Debug.Notification(nextAction)
-    if(nextAction == mConsts.KEY_REPLYTTYPE_STARTCONVERSATIONCOMPLETED)
+;This is the main function that processes the LLM response and decides what to do next based on the 'next action' keyword transmitted by Mantella. 
+;It will also extract the relevant information from the transmitted dictionary to perform the required action (e.g. make an NPC speak, raise an event etc)
+function ContinueConversation(string nextAction, int handle)
+    ;Debug.TraceUser("MC", "ContinueConversation called with nextAction: " + nextAction)
+    if(nextAction == mConsts.KEY_REPLYTYPE_STARTCONVERSATIONCOMPLETED) 
+        ;Mantella has finished initializing and is ready to start the conversation, 
+        ;so we can reset the _hasBeenStopped variable that is used to prevent multiple responses from Mantella when the conversation has ended, 
+        ;and request to continue the conversation so that Mantella can send the first line and actions
         _hasBeenStopped = false
-        if(F4SE_HTTP.hasKey(handle,mConsts.KEY_STARTCONVERSATION_USENARRATOR))
-            _useNarrator = F4SE_HTTP.getBool(handle, mConsts.KEY_STARTCONVERSATION_USENARRATOR, false) as bool
+        if (MantellaPlugin.hasKey(handle,mConsts.KEY_STARTCONVERSATION_USENARRATOR))
+            _useNarrator = MantellaPlugin.getBool(handle, mConsts.KEY_STARTCONVERSATION_USENARRATOR, false) as bool
         endif
         RequestContinueConversation()
-    elseIf(nextAction == mConsts.KEY_REPLYTYPE_NPCTALK)
-        int npcTalkHandle = F4SE_HTTP.getNestedDictionary(handle, mConsts.KEY_REPLYTYPE_NPCTALK)
+    elseIf (nextAction == mConsts.KEY_REPLYTYPE_NPCTALK)
+        ;A line of dialogue has been generated, make the relevant NPC speak it and perform the relevant actions
+        int npcTalkHandle = MantellaPlugin.getNestedDictionary(handle, mConsts.KEY_REPLYTYPE_NPCTALK)
         ProcessNpcSpeak(npcTalkHandle)
         RequestContinueConversation()
-    elseIf(nextAction == mConsts.KEY_REPLYTYPE_PLAYERTALK)
-        If (repository.microphoneEnabled)
+    elseIf (nextAction == mConsts.KEY_REPLYTYPE_PLAYERTALK)
+        ;The player needs to respond, either through text input or voice input depending on the player's settings
+        If (repository.microphoneEnabled && !repository.useHotkeyToStartMic)
             If repository.isFirstConvo
                 Debug.MessageBox("Speak slowly and clearly into your microphone when you see the 'Listening...' prompt")
                 Debug.MessageBox("Say 'goodbye' as a response to end the conversation")
@@ -232,14 +232,10 @@ function ContinueConversation(int handle)
             if repository.allowVision
                 repository.GenerateMantellaVision()
             endif
-            if repository.allowFunctionCalling
-                repository.resetFunctionInferenceNPCArrays()
-                repository.UpdateFunctionInferenceNPCArrays(repository.GetFunctionInferenceActorList())
-            endif   
             sendRequestForVoiceTranscribe()
             repository.ResetEventSpamBlockers()  ;reset spam blockers to allow the Listener Script to pick up on those again
-            
-        Else
+        Else    
+            ;Text input, wait for the player to press the 'H' key to open the text input menu and send the input to Mantella
             If repository.isFirstConvo
                 Debug.MessageBox("Use the 'H' key to enter your response")
                 Debug.MessageBox("You can also use the 'Y' key to send events to the LLM")
@@ -248,94 +244,152 @@ function ContinueConversation(int handle)
             Endif
             Debug.Notification("Awaiting player text input...")
             _does_accept_player_input = True
+            ;Execution will continue with 'GetPlayerTextInput' once player has entered their input and submitted it.
         EndIf
-
     elseIf (nextAction == mConsts.KEY_REQUESTTYPE_TTS) 
-        string transcribe = F4SE_HTTP.getString(handle, mConsts.KEY_TRANSCRIBE, "*Complete gibberish*")
+        ;Mantella returns the text that was transcribed from the player's voice input
+        ClearRepeatingMessage()
+        string transcribe = MantellaPlugin.getString(handle, mConsts.KEY_TRANSCRIBE, "*Complete gibberish*")
         if repository.allowVision
             repository.GenerateMantellaVision()
         endif
-        if repository.allowFunctionCalling
-            repository.resetFunctionInferenceNPCArrays()
-            repository.UpdateFunctionInferenceNPCArrays(repository.GetFunctionInferenceActorList())
-        endif
-        sendRequestForPlayerInput(transcribe)
+        sendRequestForPlayerInput(transcribe, updateContext=True) ;Sends the player's transcribed input to Mantella to be fed to the LLM 
         Debug.Notification("Thinking...")
-        
         repository.ResetEventSpamBlockers()  ;reset spam blockers to allow the Listener Script to pick up on those again
-    elseIf(nextAction == mConsts.KEY_REPLYTYPE_ENDCONVERSATION)
+    elseIf (nextAction == mConsts.KEY_REPLYTYPE_NPCACTION)
+        ; Mantella has detected an action that an NPC needs to perform (e.g. use an item, equip a piece of clothing etc) and 
+        ; has transmitted the relevant information for that action in the dictionary, 
+        ; so we need to extract that information and make the NPC perform the action
+        Debug.TraceUser("MC", "Processing NPC action...")
+        int npcActionHandle = MantellaPlugin.getNestedDictionary(handle, mConsts.KEY_REPLYTYPE_NPCACTION)
+        ProcessNpcAction(npcActionHandle)
+        bool updateInGameEvents = MantellaPlugin.getBool(npcActionHandle, mConsts.ACTION_REQUIRES_RESPONSE, false)
+        RequestContinueConversation(updateInGameEvents)
+    elseIf (nextAction == mConsts.KEY_REPLYTYPE_ENDCONVERSATION)
         CleanupConversation()
     endIf
 endFunction
 
-function RequestContinueConversation()
-    if _hasBeenStopped ==false
-        int handle = F4SE_HTTP.createDictionary()
-        F4SE_HTTP.setString(handle, mConsts.KEY_REQUESTTYPE, mConsts.KEY_REQUESTTYPE_CONTINUECONVERSATION)
+function RequestContinueConversation(bool updateInGameEvents = false)
+    ;Debug.TraceUser("MC", "Requesting continue conversation, updateInGameEvents: " + updateInGameEvents)
+    if _hasBeenStopped == false
+        int handle = MantellaPlugin.createDictionary()
+        MantellaPlugin.setString(handle, mConsts.KEY_REQUESTTYPE, mConsts.KEY_REQUESTTYPE_CONTINUECONVERSATION)
         AddCurrentActorsAndContext(handle)
-        if _allowTopicSwitching
-            int nextTopicInfo = GetNextTopicID()
-            F4SE_HTTP.setInt(handle, mConsts.KEY_CONTINUECONVERSATION_TOPICINFOFILE, nextTopicInfo)
-            _lastTopicInfo = nextTopicInfo
-        endif
+
+        int nextTopicInfo = GetNextTopicID()
+        MantellaPlugin.setInt(handle, mConsts.KEY_CONTINUECONVERSATION_TOPICINFOFILE, nextTopicInfo)
+        _lastTopicInfo = nextTopicInfo
+
         if(_extraRequestActions && _extraRequestActions.Length > 0)
             ;Debug.Trace("_extraRequestActions contains items. Sending them along with continue!")
-            F4SE_HTTP.setStringArray(handle, mConsts.KEY_REQUEST_EXTRA_ACTIONS, _extraRequestActions)
+            MantellaPlugin.setStringArray(handle, mConsts.KEY_REQUEST_EXTRA_ACTIONS, _extraRequestActions)
             ClearExtraRequestAction()
             ;Debug.Trace("_extraRequestActions got cleared. Remaining items: " + _extraRequestActions.Length)
         endif
+
+        if updateInGameEvents
+            _contextHandle = MantellaPlugin.createDictionary()
+            
+            ; Wait for action to complete with timeout
+            _actionResponseTimeout = 0
+            
+            if _waitingForActionResponse
+                Debug.TraceUser("MC", "Waiting for action response before continuing conversation...")
+            EndIf
+
+            while _waitingForActionResponse && _actionResponseTimeout < 50
+                Utility.Wait(0.1)
+                _actionResponseTimeout += 1
+            endWhile
+
+            _waitingForActionResponse = true ; Reset for next action
+            ;Debug.TraceUser("MC", "Updating in-game events for continue conversation. Current events: " + _ingameEvents.Length)
+            MantellaPlugin.setStringArray(_contextHandle, mConsts.KEY_CONTEXT_INGAMEEVENTS, _ingameEvents)
+            MantellaPlugin.setNestedDictionary(handle, mConsts.KEY_CONTEXT, _contextHandle)
+            ClearIngameEvent()
+        endIf
+
+        if _actorsUpdated
+            MantellaPlugin.setNestedDictionariesArray(handle, mConsts.KEY_ACTORS, _actorHandles)
+            _actorsUpdated = false
+        endIf
+
+        if repository.microphoneEnabled != microphoneEnabledLastKnownStatus
+            if repository.microphoneEnabled
+                if repository.useHotkeyToStartMic
+                    MantellaPlugin.setString(handle, mConsts.KEY_INPUTTYPE, mConsts.KEY_INPUTTYPE_PTT)
+                else
+                    MantellaPlugin.setString(handle, mConsts.KEY_INPUTTYPE, mConsts.KEY_INPUTTYPE_MIC)
+                endIf
+            Else
+                MantellaPlugin.setString(handle, mConsts.KEY_INPUTTYPE, mConsts.KEY_INPUTTYPE_TEXT)
+            endIf
+            microphoneEnabledLastKnownStatus = repository.microphoneEnabled
+        EndIf
         sendHTTPRequest(handle,mConsts.HTTP_ROUTE_MAIN, mConsts.KEY_REQUESTTYPE_CONTINUECONVERSATION)
-    endif
+    EndIf
 endFunction
 
 function ProcessNpcSpeak(int handle)
-    string speakerName = F4SE_HTTP.getString(handle, mConsts.KEY_ACTOR_SPEAKER, "Error: No speaker transmitted for action 'NPC talk'")
+    string speakerName = MantellaPlugin.getString(handle, mConsts.KEY_ACTOR_SPEAKER, "Error: No speaker transmitted for action 'NPC talk'")
     Actor speaker = none
     bool isNarration = False
     float lineDuration = 0
+
     if _useNarrator
-        isNarration = F4SE_HTTP.getBool(handle, mConsts.KEY_ACTOR_ISNARRATION, false) as bool
+        isNarration = MantellaPlugin.getBool(handle, mConsts.KEY_ACTOR_ISNARRATION, false) as bool
     endIf
     if isNarration
+        ;?
         ;speaker = Narrator.GetReference() as Actor
         speaker = playerRef ;Using player ref due to issues with narrator
         speakerName = "MantellaNarrator"
-        lineDuration = F4SE_HTTP.getFloat(handle, mConsts.KEY_ACTOR_DURATION, 0)
+        lineDuration = MantellaPlugin.getFloat(handle, mConsts.KEY_ACTOR_DURATION, 0)
         ;Debug.Notification("Using Narrator.")
     ; If actor is already loaded, do not load again from actors list
+    elseif speakerName == _lastSpeakerName
+        speaker = _lastNpcToSpeak
     else
         speaker = GetActorInConversation(speakerName)
     endIf
 
     if speaker != none
-        Actor spokenTo = GetActorSpokenTo(speaker)
-        WaitForNpcToFinishSpeaking(speaker, _lastNpcToSpeak,-1)
-        string lineToSpeakError = "Error: No line transmitted for actor to speak"
-        string lineToSpeak = F4SE_HTTP.getString(handle, mConsts.KEY_ACTOR_LINETOSPEAK, "Error: No line transmitted for actor to speak")
-        ;float duration = F4SE_HTTP.getFloat(handle, mConsts.KEY_ACTOR_DURATION, 0)
-        string[] actions = F4SE_HTTP.getStringArray(handle, mConsts.KEY_ACTOR_ACTIONS)
-        
+        WaitForNpcToFinishSpeaking(speaker, _lastNpcToSpeak)
+        string lineToSpeak = MantellaPlugin.getString(handle, mConsts.KEY_ACTOR_LINETOSPEAK, lineToSpeakError)
+        float duration = MantellaPlugin.getFloat(handle, mConsts.KEY_ACTOR_DURATION, 0)
+        ;string[] actions = MantellaPlugin.getStringArray(handle, mConsts.KEY_ACTOR_ACTIONS)
+        int topidID = MantellaPlugin.getInt(handle, mConsts.KEY_CONTINUECONVERSATION_TOPICINFOFILE,1)
 
-
-        int topidID = F4SE_HTTP.getInt(handle, mConsts.KEY_CONTINUECONVERSATION_TOPICINFOFILE,1)
-        RaiseActionEvent(speaker, lineToSpeak, actions, handle)
+        ;RaiseActionEvent(speaker, lineToSpeak, actions)
         if lineToSpeak != lineToSpeakError
             Topic topicToUse = GetTopicToUse(topidID)
-            NpcSpeak(speaker, lineToSpeak, topicToUse, isNarration, lineDuration, spokenTo)
+            NpcSpeak(speaker, lineToSpeak, topicToUse, isNarration, lineDuration)
         endif
 
-        if speaker != playerRef
-            _lastNpcToSpeak = speaker
-        EndIf
+        _lastNpcToSpeak = speaker           ; Save for next time
+        _lastSpeakerName = speakerName
+        ; if speaker != playerRef
+        ;     _lastNpcToSpeak = speaker
+        ; EndIf
+
+        ; Get actions only after the NPC starts speaking to improve response times
+        int[] actionsHandles = MantellaPlugin.getNestedDictionariesArray(handle, mConsts.KEY_ACTOR_ACTIONS)
+        if actionsHandles && actionsHandles.Length > 0
+            RaiseActionEvent(speaker, actionsHandles)
+        endIf
     endIf
 endFunction
 
-function NpcSpeak(Actor actorSpeaking, string lineToSay, Topic topicToUse, bool isSpokenByNarrator, float duration, Actor actorToSpeakTo)
+
+function NpcSpeak(Actor actorSpeaking, string lineToSay, Topic topicToUse, bool isSpokenByNarrator, float duration)
+    Actor actorToSpeakTo = GetActorSpokenTo(actorSpeaking)
     actorSpeaking.SetOverrideVoiceType(MantellaVoice)                       ;Force every line to 'MantellaVoice00'   
  
-    int ret = TopicInfoPatcher.PatchTopicInfo(topicToUse, lineToSay)          ;Patch the in-memory text to the new value
+    ;Debug.TraceUser("MC", "NPC " + topicToUse + " : " + lineToSay)
+    int ret = MantellaPlugin.PatchTopicInfo(topicToUse, lineToSay)          ;Patch the in-memory text to the new value
     if ret != 0
-        Debug.Notification("Patcher returned " + ret);                      ; Probably only if len>150
+        Debug.TraceUser("MC", "Failed to patch topic info: " + ret)
     Endif
     if !isSpokenByNarrator
         actorSpeaking.SetLookAt(actorToSpeakTo)
@@ -345,12 +399,10 @@ function NpcSpeak(Actor actorSpeaking, string lineToSay, Topic topicToUse, bool 
     actorSpeaking.Say(topicToUse, abSpeakInPlayersHead=isSpokenByNarrator)
     actorSpeaking.SetOverrideVoiceType(none)
     
-    float durationAdjusted = duration - 0.5
-    if(durationAdjusted < 0)
-        durationAdjusted = 0
-    endIf
-    Utility.Wait(durationAdjusted)
+    ;actorSpeaking.AddSpell(MantellaIsTalkingSpell, False)
+    ;Debug.TraceUser("MC", actorSpeaking.GetDisplayName() + " : " + hasSpell + " : " + lineToSay)
 endfunction
+
 
 string function GetActorName(actor actorToGetName)
     string actorName = actorToGetName.GetDisplayName()
@@ -360,6 +412,7 @@ string function GetActorName(actor actorToGetName)
     endIf
     return actorName
 endFunction
+
 
 Actor function GetActorInConversation(string actorName)
     int i = 0
@@ -373,52 +426,60 @@ Actor function GetActorInConversation(string actorName)
     return none
 endFunction
 
-Function SetIsTalking(bool isTalking)
-    _isTalking = isTalking
-EndFunction
-
-bool Function GetIsTalking()
-    return _isTalking
-EndFunction
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;       End conversation      ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+Function OnEndConversationActionReceived(int speakerID, string unused, int handle)
+    EndConversation()
+endFunction
+
+
 Function EndConversation()
     _hasBeenStopped=true
-    int handle = F4SE_HTTP.createDictionary()
-    F4SE_HTTP.setString(handle, mConsts.KEY_REQUESTTYPE,mConsts.KEY_REQUESTTYPE_ENDCONVERSATION)
+    int handle = MantellaPlugin.createDictionary()
+    MantellaPlugin.setString(handle, mConsts.KEY_REQUESTTYPE,mConsts.KEY_REQUESTTYPE_ENDCONVERSATION)
+    MantellaPlugin.setFloat(handle, mConsts.KEY_ENDCONVERSATION_TIMESTAMP, GameDaysPassed.GetValue() + 1) ; +1 because days start at 0
     sendHTTPRequest(handle,mConsts.HTTP_ROUTE_MAIN,mConsts.KEY_REQUESTTYPE_ENDCONVERSATION)
 EndFunction
 
 Function CleanupConversation()
-    _delayedHandle=0
-    repository.NPCAIPackageSelector=-1
+    ;repository.NPCAIPackageSelector=-1
     repository.hasPendingVisionCheck=false
     conversationIsEnding = true
     ClearParticipants()
     ClearIngameEvent() 
+    ClearRepeatingMessage()
     _does_accept_player_input = false
     _isTalking = false
+    _lastNpcToSpeak = none
+    _lastTopicInfo = 0
+    _cachedNearbyActors = None
+
+    ;?
     DispelSpellFromActorsInConversation(MantellaSpell)
     DispelSpellFromActorsInConversation(MantellaIsTalkingSpell)
     RemoveAllParticipantsFromFaction(MantellaFunctionTargetFaction)
     RemoveAllParticipantsFromFaction(MantellaFunctionSourceFaction)
     RemoveAllParticipantsFromFaction(MantellaFunctionModeFaction)
     RemoveAllParticipantsFromFaction(MantellaFunctionWhoIsSourceTargeting)
-    ClearAllFunctionTargets()
     Actor[] ActorsInCell = repository.ScanAndReturnNearbyActors(MantellaNPCCollectionQuest, MantellaNPCCollection, false)
     repository.RemoveFactionFromActors(ActorsInCell,MantellaFunctionTargetFaction)
     repository.RemoveFactionFromActors(ActorsInCell,MantellaFunctionSourceFaction)
     repository.RemoveFactionFromActors(ActorsInCell,MantellaFunctionModeFaction)
     repository.RemoveFactionFromActors(ActorsInCell,MantellaFunctionWhoIsSourceTargeting)
+
     If (MantellaConversationParticipantsQuest.IsRunning())
         MantellaConversationParticipantsQuest.Stop()
     EndIf  
-    ;F4SE_HTTP.clearAllDictionaries() ;This is commented out because it randomly leads to issue if a Mantella conversation is prematurely ended (infamous Error : Cannot retrieve Error bug)
-    _lastNpcToSpeak = none
+    
+    ;This is commented out because it randomly leads to issue if a Mantella conversation is prematurely ended (infamous Error : Cannot retrieve Error bug)
+    ;MantellaPlugin.clearAllDictionaries() 
+
+    MantellaPlugin.SendMantellaEvent(EventInterface.EVENT_CONVERSATION_ENDED, playerRef, "Conversation ended", 102)
+
     RestoreSettings()
     if repository.isFirstConvo
         Debug.messagebox("The conversation started but something went wrong. Make sure that Mantella.exe is running and that your filepaths are correctly set.")
@@ -428,6 +489,19 @@ Function CleanupConversation()
     endif
     Stop()
 EndFunction
+
+
+Function OnRemoveCharacterActionReceived(int speakerID, string unused, int handle)
+    Actor speaker = none
+    If speakerID != 0
+        speaker = Game.GetForm(speakerID) as Actor
+    Endif
+    
+    Actor[] actors = new Actor[2]
+    actors[0] = speaker as Actor
+    RemoveActors(actors)
+EndFunction
+
 
 Function DispelSpellFromActorsInConversation(Spell SpellToDispel)
     int i=0
@@ -450,139 +524,104 @@ Function RemoveAllParticipantsFromFaction(faction factionToRemove)
     EndWhile
 Endfunction
 
+;HTTP reply received from Mantella
 function OnHttpReplyReceived(int typedDictionaryHandle)
-    string replyType = F4SE_HTTP.getString(typedDictionaryHandle, mConsts.KEY_REPLYTYPE ,"error")
-    IF replyType == mConsts.KEY_REPLYTTYPE_INITCOMPLETED
+    string replyType = MantellaPlugin.getString(typedDictionaryHandle, mConsts.KEY_REPLYTYPE ,"error")
+    IF replyType == mConsts.KEY_REPLYTYPE_INITCOMPLETED
         _shouldRespond = false
     ElseIf (replyType != "error")
         _shouldRespond = true
-        ContinueConversation(typedDictionaryHandle)        
+        ContinueConversation(replyType, typedDictionaryHandle)        
     Else
-        string errorMessage = F4SE_HTTP.getString(typedDictionaryHandle, "mantella_message","Error: Could not retrieve error message")
+        string errorMessage = MantellaPlugin.getString(typedDictionaryHandle, "mantella_message","Error: Could not retrieve error message")
         Debug.Notification(errorMessage)
         CleanupConversation()
     EndIf
 endFunction
 
-; Send a request to Mantella app and setup polling if enabled
+; Send a request to Mantella app
 Function sendHTTPRequest(int handle, string route, string request)
+    ;Debug.TraceUser("MC", "SendHTTPrequest: " + request)
+    _shouldRespond = true
     if _shouldRespond
-        F4SE_HTTP.sendLocalhostHttpRequest(handle, mConsts.HTTP_PORT, route)
+        if repository.HTTPPort == 0
+            repository.HttpPort = mConsts.HTTP_PORT ; Set to default if not set yet
+            Debug.TraceUser("MC", "HTTP port not set, using default: " + mConsts.HTTP_PORT)
+        EndIf
+        MantellaPlugin.sendLocalhostHttpRequest(handle, repository.HttpPort, route)
     else
+        Debug.Notification("Not sending HTTP request because _shouldRespond is false") 
         _shouldRespond = true
     endIf
-
-    ; Set two minute timeout, enough for LLM retries
-    if HttpPolling                 ; Used for FO4VR
-        HttpTimeout = (repository.HTTPTimeOutHolotapeValue*1.6) as int        ; should be in config, multiplied by 1.6 to compensation the HTTP period
-        HttpPeriod = 0.3
-    Else
-        HttpPeriod = 0.5           ; Secondary data check, sometimes signal keystroke gets lost :-(
-        HttpTimeout = repository.HTTPTimeOutHolotapeValue
-    EndIf
-    SetPolling()
 EndFunction
-
-int Function CheckForHttpReply()                   ; Retrieve messages from Mantella app, if available
-    int handle = F4SE_HTTP.GetHandle()
-    If handle != -1
-        PollTimerActive = false
-        CancelTimer(_HttpPollTimer)
-        if handle >= 100000                         ; Used to indicate error
-            OnHttpErrorReceived(handle - 100000)
-        Else
-            OnHttpReplyReceived(handle)
-        Endif
-    Else
-        SetPolling()
-    EndIf
-    return handle
-EndFunction
-
-Function SetPolling()                           ; Set timer for next message check
-    HttpTimeout -= 1
-    PollTimerActive = true
-    If HttpTimeout > 0 
-        CancelTimer(_HttpPollTimer)
-        StartTimer(HttpPeriod, _HttpPollTimer)
-    Else
-        Debug.Notification("HTTP Timeout")
-        CleanupConversation()
-    Endif
-EndFunction
-
-; F4SE_HTTP signals us that data is ready by sending a 0x97 keycode
-Event OnKeyDown(int keycode)
-    if keycode == 0x97 && !HttpPolling                ; 0x97 = Signal from F4SE_HTTP
-        int gotData = CheckForHttpReply()
-    EndIf
-EndEvent
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   Timer Management    ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Event Ontimer( int TimerID)
+Event Ontimer(int TimerID)
     If TimerID==_PlayerTextInputTimer ;Spacing out the GenerateMantellaVision() to avoid taking a screenshot of the interface
         repository.GenerateMantellaVision()
-        sendRequestForPlayerInput(_PlayerTextInput)
+        Debug.TraceUser("MC", "Player text input timer ended, sending request for player input with vision data")
+        sendRequestForPlayerInput(_PlayerTextInput, false)
         _does_accept_player_input = False
         repository.ResetEventSpamBlockers() ;reset spam blockers to allow the Listener Script to pick up on those again
         Debug.Notification("Thinking...")
-    elseif TimerID>=RestartLootTimer && TimerID<=(RestartLootTimer+4) ;Checking if the timer is within bounds of a restart loot timer
-        int ArrayNumberForStoredData = (TimerID-RestartLootTimer) ;Deducing the Array number from the restart timer
-        actor CurrentActor = CurrentStoredParticipantData[ArrayNumberForStoredData].ActorRef
-        if CurrentActor.GetFactionRank(MantellaFunctionSourceFaction) == 3 ;Check if actor is still looting
-            If CurrentActor.IsOverEncumbered()
-                debug.notification(CurrentActor.GetDisplayName()+" cannot scavenge anymore because they are overemcumbered.") 
-                CurrentActor.setFactionRank(MantellaFunctionSourceFaction, 0) ;Setting Source Faction rank to 0 which means "wait" 
-                CauseReassignmentOfParticipantAlias() ;Forcing participant to wait
-            EndIf
-            float currentPositionX = CurrentActor.getpositionX()
-            float currentPositionY = CurrentActor.getpositionY()
-            float currentPositionZ = CurrentActor.getpositionZ()      
-            if currentPositionX==CurrentStoredParticipantData[ArrayNumberForStoredData].PositionX && currentPositionY==CurrentStoredParticipantData[ArrayNumberForStoredData].PositionY &&  currentPositionZ==CurrentStoredParticipantData[ArrayNumberForStoredData].PositionZ
-                CauseReassignmentOfParticipantAlias() ;Forcing participant to start looting again of if they haven't moved in the last four seconds
-            endif
-            CurrentStoredParticipantData[ArrayNumberForStoredData].PositionX=currentPositionX
-            CurrentStoredParticipantData[ArrayNumberForStoredData].PositionY=currentPositionY
-            CurrentStoredParticipantData[ArrayNumberForStoredData].PositionZ=currentPositionZ
-            StartTimer(4,(RestartLootTimer+ArrayNumberForStoredData)) 
-        endif
-    ElseIf TimerID == _HttpPollTimer  ; Used with VR, need to poll for HTTP received data
-        if PollTimerActive
-            int gotData = CheckForHttpReply()
-            ;if gotData != -1
-            ;Endif
-        Endif
-    Endif
-Endevent
+    ElseIf TimerID == _repeatingMessageTimer  && _repeatingMessage != ""
+        Debug.Notification(_repeatingMessage)
+        StartTimer(10.0, _repeatingMessageTimer) ; Restart the timer to show the message again
+    EndIf
+EndEvent
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   Handle player speaking    ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-function sendRequestForPlayerInput(string playerInput)
+;Send the player's text input to Mantella, along with the current context and actors in the conversation if needed. 
+;If updateContext is false, it will skip rebuilding the context and just send the previous context again,
+;which can be used to save time if the context was recently updated and is unlikely to have changed much since then. 
+;if playerInput is empty, Mantella will capture the player's voice input, transcribe it, and return it to be spoken by the player in-game.
+function sendRequestForPlayerInput(string playerInput, bool updateContext)
+    Debug.TraceUser("MC", "sendRequestForPlayerInput called with input: " + playerInput + " and updateContext: " + updateContext)
     if _hasBeenStopped==false
+        ;?
         if repository.allowTrackPlayerState
             AddIngameEvent(repository.constructPlayerState())
         endif
-        int handle = F4SE_HTTP.createDictionary()
-        F4SE_HTTP.setString(handle, mConsts.KEY_REQUESTTYPE, mConsts.KEY_REQUESTTYPE_PLAYERINPUT)
-        F4SE_HTTP.setString(handle, mConsts.KEY_REQUESTTYPE_PLAYERINPUT, playerinput)
-        int[] handlesNpcs = BuildNpcsInConversationArray()
-        F4SE_HTTP.setNestedDictionariesArray(handle, mConsts.KEY_ACTORS, handlesNpcs)    
-        int handleContext = BuildContext()
-        F4SE_HTTP.setNestedDictionary(handle, mConsts.KEY_CONTEXT, handleContext)
 
-        ClearIngameEvent()    
+        int handle = MantellaPlugin.createDictionary()
+        MantellaPlugin.setString(handle, mConsts.KEY_REQUESTTYPE, mConsts.KEY_REQUESTTYPE_PLAYERINPUT)
+        MantellaPlugin.setString(handle, mConsts.KEY_REQUESTTYPE_PLAYERINPUT, playerinput)
+
+        int[] handlesNpcs = BuildNpcsInConversationArray()
+        MantellaPlugin.setNestedDictionariesArray(handle, mConsts.KEY_ACTORS, handlesNpcs)
+
+        if updateContext ; if context has not been refreshed recently
+            BuildContext()
+        endIf
+        MantellaPlugin.setNestedDictionary(handle, mConsts.KEY_CONTEXT, _contextHandle)
         sendHTTPRequest(handle,mConsts.HTTP_ROUTE_MAIN, mConsts.KEY_REQUESTTYPE_PLAYERINPUT)
+        ClearIngameEvent()
         endif
 endFunction
 
+
 function sendRequestForVoiceTranscribe()
-    sendRequestForPlayerInput("")
+    if(!_does_accept_player_input)
+        return
+    Else
+        _does_accept_player_input = False
+    endif
+
+    Debug.TraceUser("MC", "sendRequestForVoiceTranscribe called, sending request for player input with voice transcribe")
+    sendRequestForPlayerInput("", updateContext=True)
+    ShowRepeatingMessage("Listening...")
 endFunction
 
+;Called from repository.OnKeyDown when the player presses the hotkey to enter text input, if that setting is enabled
+;Calls the SimpleTextField menu to get text input from the player, which will then call back to
+;the appropriate SetPlayerResponse...Input function below depending on the type of input requested (dialogue response vs game event log)
+
 function GetPlayerTextInput(string entrytype)
+    Debug.TraceUser("MC", "GetPlayerTextInput called with entrytype: " + entrytype)
     ;disable for VR
     if !repository.isFO4VR
         if entryType == "playerResponseTextEntry" && _does_accept_player_input
@@ -595,23 +634,21 @@ function GetPlayerTextInput(string entrytype)
     endif
 endFunction
 
+; Callback function for when player text input is received for dialogue
 Function SetPlayerResponseTextInput(string text)
     ;disable for VR
     if !repository.isFO4VR
-        text = TopicInfoPatcher.StringRemoveWhiteSpace(text)
+        text = MantellaPlugin.StringRemoveWhiteSpace(text)
         if text == ""
             return
         Endif
 
+        BuildContext() ;rebuild context to make sure it's as up to date as possible before sending player input, since text input can sometimes be slow and the context may have changed since the player was prompted for input
         _PlayerTextInput=text
-        if repository.allowFunctionCalling
-            repository.resetFunctionInferenceNPCArrays()
-            repository.UpdateFunctionInferenceNPCArrays(repository.GetFunctionInferenceActorList())
-        endif
         if repository.allowVision
             StartTimer(0.3,_PlayerTextInputTimer) ;Spacing out the GenerateMantellaVision() to avoid taking a screenshot of the interface
         else
-            sendRequestForPlayerInput(_PlayerTextInput)
+            sendRequestForPlayerInput(_PlayerTextInput, false)
             _does_accept_player_input = False
             repository.ResetEventSpamBlockers() ;reset spam blockers to allow the ListenerScript to pick up on those again
             Debug.notification("Thinking...")
@@ -619,9 +656,10 @@ Function SetPlayerResponseTextInput(string text)
     endif
 EndFunction
 
+; Callback function for when player text input is received for dialogue with vision input
 Function SetPlayerResponseTextAndVisionInput(string text)
     if !repository.isFO4VR
-        text = TopicInfoPatcher.StringRemoveWhiteSpace(text)
+        text = MantellaPlugin.StringRemoveWhiteSpace(text)
         if text == ""
             return
         Endif
@@ -632,10 +670,11 @@ Function SetPlayerResponseTextAndVisionInput(string text)
     endif
 EndFunction
 
+; Callback function for when player text input is received for adding a game event
 Function SetGameEventTextInput(string text)
     ;disable for VR
     if !repository.isFO4VR
-        text = TopicInfoPatcher.StringRemoveWhiteSpace(text)
+        text = MantellaPlugin.StringRemoveWhiteSpace(text)
         if text == ""
             return
         Endif
@@ -643,445 +682,165 @@ Function SetGameEventTextInput(string text)
     endif
 EndFunction
 
-    ;
-
-function WaitForNpcToFinishSpeaking(Actor speaker, Actor lastNpcToSpeak, int handle)
+;OK
+function WaitForNpcToFinishSpeaking(Actor speaker, Actor lastNpcToSpeak)
     ; if this is the start of the conversation there is no need to wait, so skip this function entirely
     if lastNpcToSpeak != None
         ; if the current NPC did not speak last in a multi-NPC conversation, 
         ; wait for the last NPC to finish speaking to avoid interrupting
         if speaker != lastNpcToSpeak 
-            WaitForSpecificNpcToFinishSpeaking(lastNpcToSpeak, handle)
+            WaitForSpecificNpcToFinishSpeaking(lastNpcToSpeak)
         endIf
         ; wait for the current NPC to finish speaking before starting the next voiceline
-        WaitForSpecificNpcToFinishSpeaking(speaker, handle)
+        WaitForSpecificNpcToFinishSpeaking(speaker)
     endIf
 endFunction
 
-function WaitForSpecificNpcToFinishSpeaking(Actor selectedNpc, int handle)
-    selectedNpc.AddSpell(MantellaIsTalkingSpell, False)
-   ; MantellaIsTalkingSpell.cast(selectedNpc as ObjectReference, selectedNpc as ObjectReference)
-    float waitTime = 0.01
+function SetIsTalking(bool talking)
+    _isTalking = talking
+endFunction
+
+;OK
+function WaitForSpecificNpcToFinishSpeaking(Actor selectedNpc)
+    ;selectedNpc.AddSpell(MantellaIsTalkingSpell, False)
+    _isTalking = true
+
+    ;Debug.TraceUser("MC", "Waiting for " + selectedNpc.GetDisplayName() + "To finish speaking")
+    ;? Wait for _istalking to be set?
+    ; MantellaIsTalkingSpell.cast(selectedNpc as ObjectReference, selectedNpc as ObjectReference)
+    float waitTime = 0.1
     float totalWaitTime = 0
-    Utility.Wait(waitTime) ; allow time for _isTalking to be set
-    while _isTalking == true ; wait until the NPC has finished speaking
+    while selectedNpc.isTalking() && totalWaitTime <= 15.0  ; wait until the NPC has finished speaking
         Utility.Wait(waitTime)
         totalWaitTime += waitTime
-        if totalWaitTime > 10 ; note that this isn't really in seconds due to the overhead of the loop running
-            Debug.Notification("NPC speaking too long, ending wait...")
-            _isTalking = false
-        endIf
     endWhile
-    ;selectedNpc.DispelSpell(MantellaIsTalkingSpell)
-    if handle>0
-        var[] kargs = new Var[1]
-        kargs[0]= _delayedHandle
-        SendCustomEvent("DelayedCustomEventTrigger", kargs )
-        UnregisterForCustomEvent(self, "DelayedCustomEventTrigger")
-        selectedNpc.RemoveSpell(MantellaIsTalkingSpell)
-    endif
+
+    if totalWaitTime > 15.0 ; note that this isn't really in seconds due to the overhead of the loop running
+        Debug.Notification("NPC speaking too long, ending wait...")
+    endIf
+    ;Debug.TraceUser("MC", selectedNpc.GetDisplayName() + " finished speaking")
+
+    _isTalking = false
+    ; if handle>0
+    ;     var[] kargs = new Var[1]
+    ;     kargs[0]= _delayedHandle
+    ;     SendCustomEvent("DelayedCustomEventTrigger", kargs )
+    ;     UnregisterForCustomEvent(self, "DelayedCustomEventTrigger")
+    ;     selectedNpc.RemoveSpell(MantellaIsTalkingSpell)
+    ; endif
  endFunction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;       Action handler        ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Function RaiseActionEvent(Actor speaker, string lineToSpeak, string[] actions, int handle)
-    if(!actions || actions.Length == 0)
-        return ;dont send out an action event if there are no actions to act upon
-    endIf
 
-    int i = 0
-    While i < actions.Length
-        string extraAction = actions[i]
-        if extraAction == mConsts.ACTION_NPC_INVENTORY
-            RegisterForCustomEvent(self, "DelayedCustomEventTrigger")
-            int delayedHandle = GenerateDelayedHandle()
-            _delayedActionIdentifier[delayedHandle] = extraAction
-            _delayedSpeaker[delayedHandle] = speaker
-            _delayedlineToSpeak[delayedHandle] =lineToSpeak
-            WaitForNpcToFinishSpeaking(speaker, _lastNpcToSpeak, delayedHandle)
-        endif
-        if extraAction != mConsts.ACTION_NPC_INVENTORY
-            TriggerCorrectCustomEvent(extraAction, speaker, lineToSpeak, handle)
-        endif
-        i += 1
-    EndWhile    
-EndFunction
-
-Event MantellaConversation.DelayedCustomEventTrigger (MantellaConversation akSender, var[] kargs)
-    int handle = kargs[0] as int
-    TriggerCorrectCustomEvent(_delayedActionIdentifier[handle], _delayedSpeaker[handle], _delayedlineToSpeak[handle],-1)
-EndEvent
-
-Function TriggerCorrectCustomEvent(string actionIdentifier, Actor speaker, string lineToSpeak, int handle)
-    Var[] kargs = new Var[2]
-    kargs[0] = speaker
-    kargs[1] = lineToSpeak
-    if(actionIdentifier == mConsts.ACTION_RELOADCONVERSATION)
-        SendCustomEvent("MantellaConversation_Action_mantella_reload_conversation", kargs)
-        TriggerReloadConversation()        
-    ElseIf (actionIdentifier == mConsts.ACTION_ENDCONVERSATION)
-        SendCustomEvent("MantellaConversation_Action_mantella_end_conversation", kargs)
-        EndConversation()
-    ElseIf (actionIdentifier == mConsts.ACTION_REMOVECHARACTER)
-        SendCustomEvent("MantellaConversation_Action_mantella_remove_character", kargs)
-        Actor[] actors = new Actor[1]
-        actors[0] = speaker as Actor
-        RemoveActors(actors)
-    ElseIf (actionIdentifier == mConsts.ACTION_NPC_OFFENDED)
-        SendCustomEvent("MantellaConversation_Action_mantella_npc_offended", kargs)
-        if repository.allowActionAggro 
-            speaker.StartCombat(playerRef)
-        endif
-    ElseIf (actionIdentifier == mConsts.ACTION_NPC_FORGIVEN)
-        SendCustomEvent("MantellaConversation_Action_mantella_npc_forgiven", kargs)
-        speaker.StopCombat()
-    ElseIf (actionIdentifier == mConsts.ACTION_NPC_FOLLOW)
-        SendCustomEvent("MantellaConversation_Action_mantella_npc_follow", kargs)
-        ;NPCs not yet available as companions have -1 faction rank
-        if (repository.allowNPCsStayInPlace && repository.allowFollow && !speaker.IsinFaction(CompanionFaction)) || (speaker.GetFactionRank(CompanionFaction) < 0 && repository.allowFollow)
-            Debug.Notification(speaker.GetDisplayName() + " is following")
-            speaker.SetPlayerTeammate(true)
-            speaker.EvaluatePackage()
-        EndIf
-    ElseIf (actionIdentifier == mConsts.ACTION_NPC_INVENTORY)
-        if (speaker)
-            if repository.allowActionInventory
-                speaker.OpenInventory(true) 
-            else
-                Debug.Notification("Inventory action not enabled in the Mantella MCM.")
-            endif
-        endif
-    ElseIf (actionIdentifier == mConsts.ACTION_NPC_MOVETO_NPC)
-        debug.notification("Move to NPC action identifier recognized")
-        string[] targetIDs= RetrieveTargetIDFunctionInferenceValues(handle)
-        debug.notification("Target IDs array fetched "+targetIDs)
-        actor targetNPC = repository.getActorFromArray(targetIDs[0],repository.MantellaFunctionInferenceActorList)
-        
-        if targetNPC
-            speaker.AddToFaction(MantellaFunctionSourceFaction)
-            speaker.SetFactionRank(MantellaFunctionSourceFaction, 1)
-            CurrentFunctionTargetNPC=targetNPC
-            If (CurrentFunctionTargetNPC==playerRef)
-                speaker.SetFactionRank(MantellaFunctionSourceFaction, 5)
-                speaker.SetPlayerTeammate(true)
-                speaker.EvaluatePackage()
-                repository.NPCAIPackageSelector=5
-                debug.notification("Target NPC found, "+speaker.GetDisplayName()+" is following "+CurrentFunctionTargetNPC.GetDisplayName())
-            else
-                actor[] speakerArrayOfOne = new actor[1]
-                speakerArrayOfOne[0]=speaker
-                UpdateCurrentFunctionTarget(speakerArrayOfOne, CurrentFunctionTargetNPC)
-                repository.NPCAIPackageSelector=1
-                debug.notification("Target NPC found, "+speaker.GetDisplayName()+" is moving towards "+CurrentFunctionTargetNPC.GetDisplayName())
-            EndIf
-            CauseReassignmentOfParticipantAlias()
-        endif
-    ElseIf (actionIdentifier == mConsts.ACTION_MULTI_MOVETO_NPC)
-        debug.notification("Multi move to NPC action identifier recognized")
-        string[] targetIDs= RetrieveTargetIDFunctionInferenceValues(handle)
-        debug.notification("Target IDs array fetched "+targetIDs)
-        actor targetNPC = repository.getActorFromArray(targetIDs[0],repository.MantellaFunctionInferenceActorList)
-        if targetNPC
-            actor[] ActorsToMove = BuildActorArrayFromFormlist(Participants)
-            string[] sourceIDs = F4SE_HTTP.getStringArray(handle, mConsts.FUNCTION_DATA_SOURCE_IDS)
-            ActorsToMove = FilterActorArrayFromIDs(sourceIDs, ActorsToMove)
-            CurrentFunctionTargetNPC=targetNPC
-            int i=0
-            bool doOnce
-            Actor currentActor
-            While i < ActorsToMove.Length
-
-                currentActor = ActorsToMove[i]
-                currentActor.AddToFaction(MantellaFunctionSourceFaction)
-                If (CurrentFunctionTargetNPC==playerRef)
-                    currentActor.SetFactionRank(MantellaFunctionSourceFaction, 5)
-                    currentActor.SetPlayerTeammate(true)
-                    currentActor.EvaluatePackage()
-                    repository.NPCAIPackageSelector=5
-                    debug.notification(currentActor.GetDisplayName()+" is following "+CurrentFunctionTargetNPC.GetDisplayName())
-                else
-                    currentActor.SetFactionRank(MantellaFunctionSourceFaction, 1)
-                    if !doOnce
-                        UpdateCurrentFunctionTarget(ActorsToMove, CurrentFunctionTargetNPC)
-                        doOnce=true
-                    endif
-                    repository.NPCAIPackageSelector=1
-                    currentActor.EvaluatePackage()
-                    debug.notification(currentActor.GetDisplayName()+" is moving towards "+CurrentFunctionTargetNPC.GetDisplayName())
-                EndIf
-                i+=1
-            EndWhile
-            CauseReassignmentOfParticipantAlias()
-        endif
-    ElseIf (actionIdentifier == mConsts.ACTION_NPC_ATTACK_OTHER_NPC)
-        debug.notification("Attack NPC action identifier recognized")
-        string[] targetIDs= RetrieveTargetIDFunctionInferenceValues(handle)
-        debug.notification("Target IDs array fetched "+targetIDs)
-        actor targetNPC = repository.getActorFromArray(targetIDs[0],repository.MantellaFunctionInferenceActorList)
-        if targetNPC
-            repository.NPCAIPackageSelector=2
-            CurrentFunctionTargetNPC=targetNPC
-            actor[] speakerArrayOfOne = new actor[1]
-            speakerArrayOfOne[0]=speaker
-            speaker.SetFactionRank(MantellaFunctionSourceFaction, 2)
-            UpdateCurrentFunctionTarget(speakerArrayOfOne, CurrentFunctionTargetNPC)
-            speaker.StartCombat(CurrentFunctionTargetNPC)
-            CauseReassignmentOfParticipantAlias()
-            debug.notification("Target NPC found, "+speaker.GetDisplayName()+" is attacking "+CurrentFunctionTargetNPC.GetDisplayName())
-        endif
-    ElseIf (actionIdentifier == mConsts.ACTION_MULTI_NPC_ATTACK_OTHER_NPC)
-        debug.notification("Multi Attack NPC action identifier recognized")
-        string[] targetIDs= RetrieveTargetIDFunctionInferenceValues(handle)
-        debug.notification("Target IDs array fetched "+targetIDs)
-        actor targetNPC = repository.getActorFromArray(targetIDs[0],repository.MantellaFunctionInferenceActorList) 
-        if targetNPC
-            actor[] ActorsToAttack = BuildActorArrayFromFormlist(Participants)
-            string[] sourceIDs = F4SE_HTTP.getStringArray(handle, mConsts.FUNCTION_DATA_SOURCE_IDS)
-            ActorsToAttack = FilterActorArrayFromIDs(sourceIDs, ActorsToAttack)
-            
-            CurrentFunctionTargetNPC=targetNPC
-            int i=0
-            Actor currentActor
-            UpdateCurrentFunctionTarget(ActorsToAttack,CurrentFunctionTargetNPC)
-            repository.NPCAIPackageSelector=2
-            While i < ActorsToAttack.Length
-                currentActor = ActorsToAttack[i]
-                currentActor.SetFactionRank(MantellaFunctionSourceFaction, 2)
-                debug.notification("Target NPC found, "+currentActor.GetDisplayName()+" is attacking "+CurrentFunctionTargetNPC.GetDisplayName())
-                currentActor.StartCombat(CurrentFunctionTargetNPC)
-                i+=1
-            EndWhile
-            CauseReassignmentOfParticipantAlias()
-            
-        endif
-    ElseIf (actionIdentifier == mConsts. ACTION_MULTI_NPC_LOOT_ITEMS)
-        
-        actor[] LootingActors = BuildActorArrayFromFormlist(Participants)
-        string[] sourceIDs = F4SE_HTTP.getStringArray(handle, mConsts.FUNCTION_DATA_SOURCE_IDS)
-        LootingActors = FilterActorArrayFromIDs(sourceIDs, LootingActors)
-        string[] item_type_to_loot = F4SE_HTTP.getStringArray(handle, mConsts.FUNCTION_DATA_MODES)
-        repository.NPCAIItemToLootSelector=0
-        string lootNotification = "" 
-        if item_type_to_loot[0] == "weapons"
-            repository.NPCAIItemToLootSelector=1
-            lootNotification=" will scavenge weapons for you."
-        Elseif item_type_to_loot[0] == "armor"
-            repository.NPCAIItemToLootSelector=2
-            lootNotification=" will scavenge armor for you."
-        Elseif item_type_to_loot[0] == "junk"
-            repository.NPCAIItemToLootSelector=3
-            lootNotification=" will scavenge junk for you."
-        Elseif item_type_to_loot[0] == "consumables"
-            repository.NPCAIItemToLootSelector=4
-            lootNotification=" will scavenge consumables for you."
-        Else
-            repository.NPCAIItemToLootSelector
-            lootNotification=" will scavenge any items for you."
-        endif
-        if !LootingActors
-            return
-        endif
-        int i = 0
-        actor currentActor
-        repository.NPCAIPackageSelector=3
-        repository.isAParticipantInteractingWithGroundItems=true ;Need to set this to true for the RefColls to be filled
-        While i < LootingActors.Length
-            currentActor = LootingActors[i]
-            if currentActor.IsOverEncumbered()
-                debug.notification(currentActor.GetDisplayName()+" cannot scavenge for you because they are overemcumbered.") 
-            Else
-                currentActor.SetFactionRank(MantellaFunctionModeFaction, repository.NPCAIItemToLootSelector) ;Attributing the mode number to the faction
-                debug.notification(currentActor.GetDisplayName()+lootNotification)
-                currentActor.SetFactionRank(MantellaFunctionSourceFaction, 3) ; MantellaFunctionSourceFaction Rank 3 means looting
-                CurrentStoredParticipantData[CurrentStoredParticipantDataPointer].ActorRef = speaker
-                CurrentStoredParticipantData[CurrentStoredParticipantDataPointer]
-                CurrentStoredParticipantData[CurrentStoredParticipantDataPointer].PositionX = speaker.getpositionX()
-                CurrentStoredParticipantData[CurrentStoredParticipantDataPointer].PositionY = speaker.getpositionY()
-                CurrentStoredParticipantData[CurrentStoredParticipantDataPointer].PositionZ = speaker.getpositionZ()
-                StartTimer(4,RestartLootTimer+CurrentStoredParticipantDataPointer) ;Adding CurrentStoredParticipantDataPointer to the loot timer
-                if CurrentStoredParticipantDataPointer < CurrentStoredParticipantData.Length
-                CurrentStoredParticipantDataPointer+1
-                else 
-                    CurrentStoredParticipantDataPointer=0
-                endif
-            endif
-            i+=1
-        EndWhile
-        CauseReassignmentOfParticipantAlias()
-        
-    ElseIf (actionIdentifier == mConsts.ACTION_NPC_LOOT_ITEMS)
-        
-        if speaker.IsOverEncumbered()
-            debug.notification(speaker.GetDisplayName()+" cannot scavenge for you because they are overemcumbered.") 
-            return
-        endif
-        repository.NPCAIItemToLootSelector=0
-        speaker.SetFactionRank(MantellaFunctionSourceFaction, 3) ; MantellaFunctionSourceFaction Rank 3 means looting
-        string[] item_type_to_loot = F4SE_HTTP.getStringArray(handle, mConsts.FUNCTION_DATA_MODES)
-        if item_type_to_loot[0] == "weapons"
-            repository.NPCAIItemToLootSelector=1
-            speaker.SetFactionRank(MantellaFunctionModeFaction, 1)
-            debug.notification(speaker.GetDisplayName()+" will scavenge weapons for you.")
-        Elseif item_type_to_loot[0] == "armor"
-            repository.NPCAIItemToLootSelector=2
-            speaker.SetFactionRank(MantellaFunctionModeFaction, 2)
-            debug.notification(speaker.GetDisplayName()+" will scavenge armor for you.")
-        Elseif item_type_to_loot[0] == "junk"
-            repository.NPCAIItemToLootSelector=3
-            speaker.SetFactionRank(MantellaFunctionModeFaction, 3)
-            debug.notification(speaker.GetDisplayName()+" will scavenge junk for you.")
-        Elseif item_type_to_loot[0] == "consumables"
-            repository.NPCAIItemToLootSelector=4
-            speaker.SetFactionRank(MantellaFunctionModeFaction, 4)
-            debug.notification(speaker.GetDisplayName()+" will scavenge consumables for you.")
-        Else
-            speaker.SetFactionRank(MantellaFunctionModeFaction, 0)
-            debug.notification(speaker.GetDisplayName()+" will scavenge any items for you.")
-        endif
-        repository.NPCAIPackageSelector=3
-        
-        repository.isAParticipantInteractingWithGroundItems=true ;Need to set this to true for the RefColls to be filled
-        CauseReassignmentOfParticipantAlias()
-        CurrentStoredParticipantData[CurrentStoredParticipantDataPointer].ActorRef = speaker
-        CurrentStoredParticipantData[CurrentStoredParticipantDataPointer]
-        CurrentStoredParticipantData[CurrentStoredParticipantDataPointer].PositionX = speaker.getpositionX()
-        CurrentStoredParticipantData[CurrentStoredParticipantDataPointer].PositionY = speaker.getpositionY()
-        CurrentStoredParticipantData[CurrentStoredParticipantDataPointer].PositionZ = speaker.getpositionZ()
-        StartTimer(4,RestartLootTimer+CurrentStoredParticipantDataPointer) ;Adding CurrentStoredParticipantDataPointer to the loot timer
-        if CurrentStoredParticipantDataPointer <CurrentStoredParticipantData.Length
-            CurrentStoredParticipantDataPointer+1
-        else 
-            CurrentStoredParticipantDataPointer=0
-        endif
-    ElseIf (actionIdentifier == mConsts.ACTION_MAKE_NPC_WAIT)
-        repository.NPCAIPackageSelector=0
-        speaker.AddToFaction(MantellaFunctionSourceFaction)
-        speaker.SetFactionRank(MantellaFunctionSourceFaction, 0)
-        speaker.StopCombat()
-        debug.notification(speaker.GetDisplayName()+" will wait")
-        CauseReassignmentOfParticipantAlias()
-    ElseIf (actionIdentifier == mConsts.ACTION_MULTI_MAKE_NPC_WAIT)
-        actor[] ActorsToWait = BuildActorArrayFromFormlist(Participants)
-        string[] sourceIDs = F4SE_HTTP.getStringArray(handle, mConsts.FUNCTION_DATA_SOURCE_IDS)
-        ActorsToWait = FilterActorArrayFromIDs(sourceIDs, ActorsToWait)
-        repository.NPCAIPackageSelector=0
-        Actor currentActor
-        int i=0
-        While i < ActorsToWait.Length
-            currentActor = ActorsToWait[i]
-            currentActor.AddToFaction(MantellaFunctionSourceFaction)
-            currentActor.SetFactionRank(MantellaFunctionSourceFaction, 0)
-            currentActor.stopcombat()
-            debug.notification(currentActor.GetDisplayName()+" will wait")
-            i+=1
-        EndWhile
-        CauseReassignmentOfParticipantAlias()
-    ElseIf (actionIdentifier == mConsts.ACTION_NPC_HEAL_PLAYER)
-        speaker.SetFactionRank(MantellaFunctionSourceFaction, 4)
-        speaker.SetFactionRank(MantellaFunctionModeFaction, 1)
-        debug.notification(speaker.GetDisplayName()+" will heal the player")
-        CauseReassignmentOfParticipantAlias()
-    ElseIf (actionIdentifier == mConsts.ACTION_NPC_USE_ITEM)
-        string[] targetIDs= RetrieveTargetIDFunctionInferenceValues(handle)
-        debug.notification("Target IDs array fetched "+targetIDs)
-        actor targetNPC = repository.getActorFromArray(targetIDs[0],repository.MantellaFunctionInferenceActorList)
-        
-        
-        string[] item_type_to_use = F4SE_HTTP.getStringArray(handle, mConsts.FUNCTION_DATA_MODES)
-        int factionModeRankToUse = 0
-        if (item_type_to_use[0] == "stimpak") || (item_type_to_use[0] == "stimpak")
-            factionModeRankToUse = 1
-        Elseif item_type_to_use[0] == "radaway"
-            factionModeRankToUse = 2
-        Else
-            debug.notification("No appropriate item detected, aborting 'multi use item' function.")
-        endif
-        if targetNPC && factionModeRankToUse!=0
-            actor[] speakerArrayOfOne = new actor[1]
-            speakerArrayOfOne[0]=speaker
-            speaker.UnequipItem(MantellaIsUsingItem, false, false)
-            speaker.RemoveSpell(MantellaIsUsingItem)
-            speaker.RemoveItem(MantellaIsUsingItem,-1)
-            CurrentFunctionTargetNPC=targetNPC
-            UpdateCurrentFunctionTarget(speakerArrayOfOne,CurrentFunctionTargetNPC)
-            speaker.SetFactionRank(MantellaFunctionSourceFaction, 4)
-            speaker.SetFactionRank(MantellaFunctionModeFaction, factionModeRankToUse)
-            debug.notification(speaker.GetDisplayName()+" is attempting to use "+item_type_to_use[0]+" on "+CurrentFunctionTargetNPC.GetDisplayName())
-            CauseReassignmentOfParticipantAlias()
-        endif
-    ElseIf (actionIdentifier == mConsts.ACTION_MULTI_NPC_USE_ITEM)
-        string[] targetIDs= RetrieveTargetIDFunctionInferenceValues(handle)
-        debug.notification("Target IDs array fetched "+targetIDs)
-        actor targetNPC = repository.getActorFromArray(targetIDs[0],repository.MantellaFunctionInferenceActorList)
-        
-        
-        string[] item_type_to_use = F4SE_HTTP.getStringArray(handle, mConsts.FUNCTION_DATA_MODES)
-        int factionModeRankToUse = 0
-        if (item_type_to_use[0] == "stimpak") || (item_type_to_use[0] == "stimpak")
-            factionModeRankToUse = 1
-        Elseif item_type_to_use[0] == "radaway"
-            factionModeRankToUse = 2
-        Else
-            debug.notification("No appropriate item detected, aborting 'multi use item' function.")
-        endif
-        if targetNPC && factionModeRankToUse!=0
-            actor[] ActorsUsingItems = BuildActorArrayFromFormlist(Participants)
-            string[] sourceIDs = F4SE_HTTP.getStringArray(handle, mConsts.FUNCTION_DATA_SOURCE_IDS)
-            ActorsUsingItems = FilterActorArrayFromIDs(sourceIDs, ActorsUsingItems)
-
-            CurrentFunctionTargetNPC=targetNPC
-            int i=0
-            Actor currentActor
-            UpdateCurrentFunctionTarget(ActorsUsingItems,CurrentFunctionTargetNPC)
-            While i < ActorsUsingItems.Length
-                currentActor.UnequipItem(MantellaIsUsingItem, false, false)
-                currentActor.RemoveSpell(MantellaIsUsingItem)
-                currentActor.RemoveItem(MantellaIsUsingItem,-1)
-                currentActor = ActorsUsingItems[i]
-                currentActor.SetFactionRank(MantellaFunctionSourceFaction, 4)
-                currentActor.SetFactionRank(MantellaFunctionModeFaction, factionModeRankToUse)
-                debug.notification(currentActor.GetDisplayName()+" is attempting to use "+item_type_to_use[0]+" on "+CurrentFunctionTargetNPC.GetDisplayName())
-                i+=1
-            EndWhile
-            CauseReassignmentOfParticipantAlias()
-            
-        endif
+function ProcessNpcAction(int handle)
+    ;Get action Jsons from Mantella
+    int[] actionsHandles = MantellaPlugin.getNestedDictionariesArray(handle, mConsts.KEY_ACTOR_ACTIONS)
+    if actionsHandles && actionsHandles.Length > 0
+        RaiseActionEvent(None, actionsHandles)
     endIf
 endFunction
 
-string[] Function RetrieveTargetIDFunctionInferenceValues(int handle)
-    string[] targetIDs = F4SE_HTTP.getStringArray(handle, mConsts.FUNCTION_DATA_TARGET_IDS)
-    return targetIDs
-EndFunction
-;;;;;;;;;;;;;;;;;
-actor[] Function FilterActorArrayFromIDs(string[] IDArray, actor[] ActorArray)
-    actor currentactor
-    actor[] filteredArray = New actor [0]
+
+Function RaiseActionEvent(Actor speaker, int[] actionsHandles)
+    ; Processes actions array, automatically detecting legacy vs advanced actions.
+    ;
+    ; Args:
+    ;     speaker: The NPC who spoke (for context)
+    ;     actionsHandles: Array of MantellaPlugin dictionary handles, one per action
+    ;
+    ; Each action handle contains:
+    ;     - "identifier": Action name (e.g., "mantella_npc_follow")
+    ;     - "arguments" (optional): Dictionary with parameters
+    ;       - If present = advanced action (sends to MantellaConversation_Advanced_Action_ prefix)
+    ;       - If absent = legacy action (sends to MantellaConversation_Action_ prefix)
+    ;
+    ; Fallback Behavior:
+    ;     If LLM forgets to include arguments for a built-in action, it will be routed
+    ;     to the legacy handler, which will execute the action on the speaker only.
+    
+    Debug.TraceUser("MC", "Raising action event for " + actionsHandles.Length + " actions.")
+    if !actionsHandles || actionsHandles.Length == 0
+        return ; don't send out an action event if there are no actions to act upon
+    endIf
+    
     int i = 0
-    While i < IDArray.Length
-        currentactor = repository.getActorFromArray(IDArray[i], ActorArray)
-        if currentactor
-            filteredArray.Add(currentactor)
-        endif
+    While i < actionsHandles.Length
+        int actionHandle = actionsHandles[i]
+        
+        ; Extract action identifier
+        string actionIdentifier = MantellaPlugin.getString(actionHandle, mConsts.ACTION_IDENTIFIER, "")
+        
+        Debug.TraceUser("MC", "Processing action with identifier: '" + actionIdentifier + "'")
+        if actionIdentifier != ""
+            ; Check for special handling (eg inventory action timing)
+            if (actionIdentifier == mConsts.ACTION_NPC_INVENTORY) || (actionIdentifier == mConsts.ACTION_NPC_BARTER)
+                Utility.Wait(0.5)
+                WaitForNpcToFinishSpeaking(speaker, _lastNpcToSpeak)
+            endIf
+            
+            if actionIdentifier == mConsts.KEY_REQUESTTYPE_ENDCONVERSATION
+                EndConversation()
+            else
+                int argumentsHandle = MantellaPlugin.getNestedDictionary(actionHandle, mConsts.ACTION_ARGUMENTS, 0)
+                ; Detect if this is an advanced action (has arguments) or legacy action (no arguments)
+                if argumentsHandle != 0
+                    string eventName = EventInterface.EVENT_ADVANCED_ACTIONS_PREFIX + actionIdentifier
+                    Debug.TraceUser("MC", "Sending advanced action event: " + eventName + " with arguments.")
+                    MantellaPlugin.SendMantellaEvent(eventName, _lastNpcToSpeak, "", argumentsHandle)
+                else
+                    ; LEGACY ACTION PATH
+                    if !(speaker)
+                        if _lastNpcToSpeak
+                            speaker = _lastNpcToSpeak
+                        else
+                            speaker = GetActorInConversationByIndex(1)
+                        endIf
+                    endIf
+                    string eventName = EventInterface.EVENT_ACTIONS_PREFIX + actionIdentifier
+                    ; Legacy action: no arguments, send with simple signature
+                    ; This handles both:
+                    ;   1. Player-created custom actions built when the old system was in place
+                    ;   2. Built-in actions when LLM forgets arguments (fallback to speaker-only)
+                    Debug.TraceUser("MC", "Sending legacy action event: " + eventName + " with no arguments.")
+                    MantellaPlugin.SendMantellaEvent(eventName, speaker, "", -1)
+                endIf
+            endIf
+        else
+            Debug.Trace("Mantella: Warning - Action missing identifier", 1)
+        endIf
+        
         i += 1
     EndWhile
-    return filteredArray
 EndFunction
 
-actor[] Function BuildActorArrayFromFormlist (formlist FormlistToBuild)
-    Actor[] ActorArray = new Actor[0]
-    actor currentactor
-    int i=0
-    While i < Participants.GetSize()
-        currentactor = Participants.GetAt(i) as Actor
-        ActorArray.add(currentactor)
-        i += 1
+
+
+Function SendActorAddedEvents(Actor[] actorsAdded)
+    int index = 0
+    While (index < actorsAdded.Length)
+        Actor speaker = actorsAdded[index] as Actor
+        If (speaker)
+			MantellaPlugin.SendMantellaEvent(EventInterface.EVENT_CONVERSATION_NPC_ADDED, speaker, "NPC added to conversation", 103)
+        EndIf
+        index += 1
     EndWhile
-    return ActorArray
+    ;MantellaVanillaDialogue.notifyNpcAdded(actorsAdded)
 EndFunction
-;;;;;;;;;;;;;;;;
+
+Function SendActorRemovedEvents(Actor[] actorsRemoved)
+    int index = 0
+    While (index < actorsRemoved.Length)
+        Actor speaker = actorsRemoved[index] as Actor
+		MantellaPlugin.SendMantellaEvent(EventInterface.EVENT_CONVERSATION_NPC_REMOVED, speaker, "NPC removed from conversation", 104)
+        index += 1
+    EndWhile
+    ;MantellaVanillaDialogue.notifyNpcRemoved(actorsRemoved)
+EndFunction
+
+;;;;;;;;;;;;;;;;;
 
 Function AddExtraRequestAction(string extraAction)
     if(!_extraRequestActions)
@@ -1094,6 +853,21 @@ Function ClearExtraRequestAction()
     _extraRequestActions.Clear()
 EndFunction
 
+Function OnAddEventReceived(int speakerID, string text, int handle)
+    AddIngameEvent(text)
+    EndFunction
+
+;Signalled by actions that require waiting for a response before continuing the conversation, such as the NPC inventory action which requires waiting for the player to finish interacting with the inventory menu. 
+;This prevents the conversation from continuing and potentially sending more actions while the player is still interacting with the previous action.
+Function OnActionResponseCompleted(int speakerID, string actionIdentifier, int unused)
+    _waitingForActionResponse = false
+EndFunction
+
+Function OnReloadConversationActionReceived(int speakerID, string unused, int handle)
+    AddExtraRequestAction(mConsts.ACTION_RELOADCONVERSATION)
+endFunction
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;        Ingame events        ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1103,6 +877,7 @@ Function AddIngameEvent(string eventText)
         _ingameEvents = new string[0]
     endif
     _ingameEvents.Add(eventText)
+    ;Debug.TraceUser("MC", "Added in-game event: " + eventText + ". Current events: " + _ingameEvents.Length)
 EndFunction
 
 Function ClearIngameEvent()
@@ -1122,9 +897,9 @@ endFunction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 function OnHttpErrorReceived(int typedDictionaryHandle)
-    string errorMessage = F4SE_HTTP.getString(typedDictionaryHandle, mConsts.HTTP_ERROR ,"error")
+    string errorMessage = MantellaPlugin.getString(typedDictionaryHandle, mConsts.HTTP_ERROR ,"error")
     If (errorMessage != "error")
-        Debug.Notification("Received F4SE_HTTP error: " + errorMessage)        
+        Debug.Notification("Received MantellaPlugin error: " + errorMessage)        
         CleanupConversation()
     Else
         Debug.Notification("Error: Could not retrieve error")
@@ -1136,17 +911,6 @@ endFunction
 ;            Utils            ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-int Function GenerateDelayedHandle()
-    _delayedHandle +=1
-    return _delayedHandle
-endfunction
-
-function SetGameRefs()
-    playerRef = game.getplayer()
-    CompanionFaction = Game.GetForm(0x000023C01) as Faction
-    SettlerFaction = Game.GetForm(0x000337F3) as Faction
-    PlayerFaction = Game.GetForm(0x0001C21C) as Faction
-endfunction
 
 bool Function IsPlayerInConversation()
     int i = 0
@@ -1176,9 +940,9 @@ Function CauseReassignmentOfParticipantAlias()
     If (MantellaConversationParticipantsQuest.IsRunning())
         MantellaConversationParticipantsQuest.Stop()
     EndIf
-    if repository.allowFunctionCalling
-        repository.isAParticipantInteractingWithGroundItems=CheckIfAtLeastOneParticipantHasSpecificFactionRank(MantellaFunctionSourceFaction,3) ;Confirming if a participant is looting by checking rank to avoid pointless refColl checks
-    endif
+    ; if repository.allowFunctionCalling
+    ;     repository.isAParticipantInteractingWithGroundItems=CheckIfAtLeastOneParticipantHasSpecificFactionRank(MantellaFunctionSourceFaction,3) ;Confirming if a participant is looting by checking rank to avoid pointless refColl checks
+    ; endif
     if repository.allowNPCsStayInPlace || repository.allowFunctionCalling
         MantellaConversationParticipantsQuest.Reset()
         MantellaConversationParticipantsQuest.Start()
@@ -1192,26 +956,28 @@ Function CauseReassignmentOfParticipantAlias()
     endif
 EndFunction
 
+
 Function AddActors(Actor[] actorsToAdd)
     int i = 0
-    bool wasNewActorAdded = false
+    Actor[] actorsAdded = new Actor[0]
     While i < actorsToAdd.Length
-        int pos = Participants.Find(actorsToAdd[i])
+        Actor possibleNewActor = actorsToAdd[i]
+        int pos = Participants.Find(possibleNewActor)
         if(pos < 0)
-            Participants.AddForm(actorsToAdd[i])
-            actorsToAdd[i].AddToFaction(MantellaConversationParticipantsFaction)
-            wasNewActorAdded = true
+            Participants.AddForm(possibleNewActor)
+            possibleNewActor.AddToFaction(MantellaConversationParticipantsFaction)
+            actorsAdded.Add(possibleNewActor)
 
             ; check if there are multiple actors with the same name
             int nameCount = 0
             int j = 0
             bool break = false
-            if (actorsToAdd[i] != playerRef) ; ignore the player having the same name as an actor
+            if (possibleNewActor != playerRef) ; ignore the player having the same name as an actor
                 While (j < Participants.GetSize()) && (break==false)
                     Actor currentActor = Participants.GetAt(j) as Actor
-                    if (currentActor.GetDisplayName() == actorsToAdd[i].GetDisplayName())
+                    if (currentActor.GetDisplayName() == possibleNewActor.GetDisplayName())
                         nameCount += 1
-                        if (currentActor == actorsToAdd[i]) ; stop counting when the exact actor is found (not just the same name)
+                        if (currentActor == possibleNewActor) ; stop counting when the exact actor is found (not just the same name)
                             break = true
                         endIf
                     endIf
@@ -1221,14 +987,17 @@ Function AddActors(Actor[] actorsToAdd)
                 if (nameCount > 1)
                     ; set an ID to this non-uniquely-named actor in the form of a faction rank
                     ; these uniquely ID'd names can be called via the GetActorName() function
-                    actorsToAdd[i].SetFactionRank(MantellaConversationParticipantsFaction, nameCount)
+                    possibleNewActor.SetFactionRank(MantellaConversationParticipantsFaction, nameCount)
                 endIf
             endIf
         endIf
         i += 1
     EndWhile
-    If (wasNewActorAdded)
+
+    If (actorsAdded.Length > 0)
         CauseReassignmentOfParticipantAlias()
+        BuildNpcsInConversationArray()
+        SendActorAddedEvents(actorsAdded)
     EndIf
     
     ;PrintActorsInConversation()
@@ -1244,38 +1013,43 @@ Function StopFollowing(Actor tmpActor)
 EndFunction
 
 Function RemoveActors(Actor[] actorsToRemove)
-    ;PrintActorsArray("Actors to remove: ",actorsToRemove)
-    bool wasActorRemoved = false
+    Actor[] actorsRemoved =  new Actor[0]
     int i = 0
     While (i < actorsToRemove.Length)
-        Actor tmpActor = actorsToRemove[i] as Actor
-        If (Participants.HasForm(tmpActor))
-            Participants.RemoveAddedForm(tmpActor)
-            StopFollowing(tmpActor)
-            tmpActor.RemoveFromFaction(MantellaFunctionSourceFaction)
-            tmpActor.RemoveFromFaction(MantellaFunctionModeFaction)
-            tmpActor.RemoveFromFaction(MantellaFunctionWhoIsSourceTargeting)
-            wasActorRemoved = true
+        Actor actorInQuestion = actorsToRemove[i] as Actor
+        If (Participants.HasForm(actorInQuestion))
+            Participants.RemoveAddedForm(actorInQuestion)
+            actorsRemoved.Add(actorInQuestion)
+            StopFollowing(actorInQuestion)
+
+            ;actorInQuestion.RemoveFromFaction(MantellaFunctionSourceFaction)
+            ;actorInQuestion.RemoveFromFaction(MantellaFunctionModeFaction)
+            ;actorInQuestion.RemoveFromFaction(MantellaFunctionWhoIsSourceTargeting)
         EndIf
         i += 1
     EndWhile
     if (Participants.GetSize() < 2)
         EndConversation()
-    ElseIf (wasActorRemoved)
+    ElseIf (actorsRemoved.Length > 0)
         CauseReassignmentOfParticipantAlias()
+        BuildNpcsInConversationArray()
+        SendActorRemovedEvents(actorsRemoved)
     endIf
     ;PrintActorsInConversation()
 EndFunction
+
 
 Function ClearParticipants()
     int i = 0
     While i < Participants.GetSize()
         Actor tmpActor = Participants.GetAt(i) as Actor
+        tmpActor.RemoveFromFaction(MantellaConversationParticipantsFaction)
         StopFollowing(tmpActor)
         i += 1
     EndWhile
     Participants.Revert()
 EndFunction
+
 
 bool Function ContainsActor(Actor[] arrayToCheck, Actor actorCheckFor)
     int i = 0
@@ -1288,6 +1062,7 @@ bool Function ContainsActor(Actor[] arrayToCheck, Actor actorCheckFor)
     return False
 EndFunction
 
+
 Function PrintActorsArray(string prefix, Actor[] actors)
     int i = 0
     string actor_message = ""
@@ -1297,6 +1072,7 @@ Function PrintActorsArray(string prefix, Actor[] actors)
     EndWhile
     Debug.Notification(prefix + actor_message)
 EndFunction
+
 
 Function PrintActorsInConversation()
     int i = 0
@@ -1308,9 +1084,11 @@ Function PrintActorsInConversation()
     Debug.Notification(actor_message)
 EndFunction
 
+
 int Function CountActorsInConversation()
     return Participants.GetSize()
 EndFunction
+
 
 Actor Function GetActorInConversationByIndex(int indexOfActor) 
     If (indexOfActor >= 0 && indexOfActor < Participants.getSize())
@@ -1319,26 +1097,38 @@ Actor Function GetActorInConversationByIndex(int indexOfActor)
     return none
 EndFunction
 
+
 Function AddCurrentActorsAndContext(int handleToAddTo)
     ;Add Actors
-    int[] handlesNpcs = BuildNpcsInConversationArray()
-    F4SE_HTTP.setNestedDictionariesArray(handleToAddTo, mConsts.KEY_ACTORS, handlesNpcs)
+    MantellaPlugin.setNestedDictionariesArray(handleToAddTo, mConsts.KEY_ACTORS, _actorHandles)
     ;add context
-    int handleContext = BuildContext()
-    F4SE_HTTP.setNestedDictionary(handleToAddTo, mConsts.KEY_CONTEXT, handleContext)
+    MantellaPlugin.setNestedDictionary(handleToAddTo, mConsts.KEY_CONTEXT, _contextHandle)
 EndFunction
 
+
 int[] function BuildNpcsInConversationArray()
-    int[] actorHandles =  new int[Participants.GetSize()]
-    int i = 0
-    While i < Participants.GetSize()
-        actorHandles[i] = buildActorSetting(Participants.GetAt(i) as Actor)
-        i += 1
+    int i = Participants.GetSize()
+    _actorHandles =  new int[i]
+    While i > 0
+        i -= 1
+        _actorHandles[i] = buildActorSetting(Participants.GetAt(i) as Actor)
     EndWhile
-    return actorHandles
+    return _actorHandles
 endFunction
 
-Function AllSetLookAt(Actor speaker)                        ; make sure everybody in converstation is looking at speaker
+;?
+int[] function UpdateNpcsInConversationArray()
+    ; Update NPC details where variables are dynamic
+    int i = 0
+    While i < Participants.GetSize()
+        Actor actorToBuild = Participants.GetAt(i) as Actor
+        MantellaPlugin.setBool(_actorHandles[i], mConsts.KEY_ACTOR_ISINCOMBAT, actorToBuild.IsInCombat())
+        i += 1
+    EndWhile
+endFunction
+
+;?
+Function AllSetLookAt(Actor speaker)    ; make sure everybody in conversation is looking at speaker
     int i = 0
     While i < Participants.GetSize()
         Actor tmpActor = Participants.GetAt(i) as Actor 
@@ -1349,16 +1139,17 @@ Function AllSetLookAt(Actor speaker)                        ; make sure everybod
     EndWhile
 EndFunction
 
+;?
 Actor Function GetActorSpokenTo(Actor speaker)
     Actor spokenTo
 
-    If IsPlayerInConversation()                           ; single and multi-NPCs. Either PC or NPC can talk first
+    If IsPlayerInConversation()                ; single and multi-NPCs. Either PC or NPC can talk first
         if speaker != playerRef
             spokenTo  = playerRef
         Else
             spokenTo = _lastNpcToSpeak
         EndIf
-    Else                                                    ; Radiant conversation w/2 NPCs or new player convo w/ single NPC
+    Else                                       ; Radiant conversation w/2 NPCs or new player convo w/ single NPC
         If speaker == Participants.GetAt(0)
             spokenTo = Participants.GetAt(1) as Actor
         Else
@@ -1371,88 +1162,160 @@ EndFunction
 
 
 int function buildActorSetting(Actor actorToBuild)    
-    int handle = F4SE_HTTP.createDictionary()
-    F4SE_HTTP.setInt(handle, mConsts.KEY_ACTOR_BASEID, (actorToBuild.getactorbase() as form).getformid())
-    F4SE_HTTP.setInt(handle, mConsts.KEY_ACTOR_REFID, (actorToBuild as form).getformid())
-    F4SE_HTTP.setString(handle, mConsts.KEY_ACTOR_NAME, actorToBuild.GetDisplayName())
-    F4SE_HTTP.setBool(handle, mConsts.KEY_ACTOR_ISPLAYER, actorToBuild == playerRef)
-    F4SE_HTTP.setInt(handle, mConsts.KEY_ACTOR_GENDER, actorToBuild.getleveledactorbase().getsex())
-    F4SE_HTTP.setString(handle, mConsts.KEY_ACTOR_RACE, actorToBuild.getrace())
-    F4SE_HTTP.setInt(handle, mConsts.KEY_ACTOR_RELATIONSHIPRANK, actorToBuild.getrelationshiprank(playerRef))
-    F4SE_HTTP.setString(handle, mConsts.KEY_ACTOR_VOICETYPE, actorToBuild.GetVoiceType())
-    F4SE_HTTP.setBool(handle, mConsts.KEY_ACTOR_ISINCOMBAT, actorToBuild.IsInCombat())    
-    F4SE_HTTP.setBool(handle, mConsts.KEY_ACTOR_ISENEMY, actorToBuild.getcombattarget() == playerRef)
-    int customValuesHandle = BuildCustomActorValues(actorToBuild)
-    F4SE_HTTP.setNestedDictionary(handle, mConsts.KEY_ACTOR_CUSTOMVALUES, customValuesHandle)  
+    int handle = MantellaPlugin.createDictionary()
+    bool isPlayerCharacter = actorToBuild == PlayerRef
+
+    MantellaPlugin.setInt(handle, mConsts.KEY_ACTOR_BASEID, (actorToBuild.getactorbase() as form).getformid())
+    MantellaPlugin.setInt(handle, mConsts.KEY_ACTOR_REFID, (actorToBuild as form).getformid())
+    MantellaPlugin.setString(handle, mConsts.KEY_ACTOR_NAME, actorToBuild.GetDisplayName())
+    MantellaPlugin.setBool(handle, mConsts.KEY_ACTOR_ISPLAYER, actorToBuild == playerRef)
+    MantellaPlugin.setInt(handle, mConsts.KEY_ACTOR_GENDER, actorToBuild.getleveledactorbase().getsex())
+    MantellaPlugin.setString(handle, mConsts.KEY_ACTOR_RACE, actorToBuild.getrace())
+    MantellaPlugin.setInt(handle, mConsts.KEY_ACTOR_RELATIONSHIPRANK, actorToBuild.getrelationshiprank(playerRef))
+    MantellaPlugin.setString(handle, mConsts.KEY_ACTOR_VOICETYPE, actorToBuild.GetVoiceType())
+    MantellaPlugin.setBool(handle, mConsts.KEY_ACTOR_ISINCOMBAT, actorToBuild.IsInCombat())    
+    MantellaPlugin.setBool(handle, mConsts.KEY_ACTOR_ISENEMY, actorToBuild.getcombattarget() == playerRef)
+
+    ;TODO
+    ;EquipmentDescriber.AddEquipmentDescription(handle, actorToBuild, isPlayerCharacter, repository)
+
+    int customActorValuesHandle = MantellaPlugin.createDictionary()
+    If (isPlayerCharacter)
+        AddCustomPCValues(customActorValuesHandle, actorToBuild)
+    EndIf
+
+    MantellaPlugin.setNestedDictionary(handle, mConsts.KEY_ACTOR_CUSTOMVALUES, customActorValuesHandle)  
     return handle
 endFunction
 
-int Function BuildCustomActorValues(Actor actorToBuildCustomValuesFor)
-    int handleCustomActorValues = F4SE_HTTP.createDictionary()
-    F4SE_HTTP.setFloat(handleCustomActorValues, mConsts.KEY_ACTOR_CUSTOMVALUES_POSX, actorToBuildCustomValuesFor.getpositionX())
-    F4SE_HTTP.setFloat(handleCustomActorValues, mConsts.KEY_ACTOR_CUSTOMVALUES_POSY, actorToBuildCustomValuesFor.getpositionY())
-    return handleCustomActorValues
+
+int Function AddCustomPCValues(int customActorValuesHandle, Actor actorToBuildCustomValuesFor)
+    string description = repository.playerCharacterDescription1
+    If (repository.playerCharacterUsePlayerDescription2)
+        description = repository.playerCharacterDescription2
+    EndIf
+    MantellaPlugin.setString(customActorValuesHandle, mConsts.KEY_ACTOR_PC_DESCRIPTION, description)
+
+    ;Fallout always has voiced player
+    ;MantellaPlugin.setBool(customActorValuesHandle, mConsts.KEY_ACTOR_PC_VOICEPLAYERINPUT, repository.playerCharacterVoicePlayerInput)
+    ;If (repository.playerCharacterVoicePlayerInput)
+        ;MantellaPlugin.setString(customActorValuesHandle, mConsts.KEY_ACTOR_PC_VOICEMODEL, repository.playerCharacterVoiceModel)
+    ;EndIf
+
+    ;Obsolete
+    ;MantellaPlugin.setFloat(handleCustomActorValues, mConsts.KEY_ACTOR_CUSTOMVALUES_POSX, actorToBuildCustomValuesFor.getpositionX())
+    ;MantellaPlugin.setFloat(handleCustomActorValues, mConsts.KEY_ACTOR_CUSTOMVALUES_POSY, actorToBuildCustomValuesFor.getpositionY())
+    return customActorValuesHandle
 EndFunction
 
-int function BuildContext()
-    int handle = F4SE_HTTP.createDictionary()
-     String currLoc = ""
-    form currentLocation = playerRef.GetCurrentLocation() as Form
-    if currentLocation
-        currLoc = currentLocation.getName()
-    Else
-        currLoc = "Boston area"
+int function BuildContext(bool isConversationStart = false)
+    ;Debug.TraceUser("MC", "Building context, isConversationStart: " + isConversationStart)
+    _contextHandle = MantellaPlugin.createDictionary()
+    if (isConversationStart)
+        _location = ""
+        form currentLocation = playerRef.GetCurrentLocation() as Form
+        if currentLocation
+            _location = currentLocation.getName()
+        Else
+            _location = "Commonwealth"
+        endIf
+        MantellaPlugin.setString(_contextHandle, mConsts.KEY_CONTEXT_LOCATION, _location)
     endIf
-    F4SE_HTTP.setString(handle, mConsts.KEY_CONTEXT_LOCATION, currLoc)
-    F4SE_HTTP.setInt(handle, mConsts.KEY_CONTEXT_TIME, GetCurrentHourOfDay())
-    F4SE_HTTP.setStringArray(handle, mConsts.KEY_CONTEXT_INGAMEEVENTS, _ingameEvents)
+
+    if (isConversationStart || repository.playerTrackingOnWeatherChange)
+        AddCurrentWeather(_contextHandle)
+    endIf
+
+    if (isConversationStart || repository.playerTrackingOnTimeChange)
+        _initialTime = GetCurrentHourOfDay()
+    endIf
+    MantellaPlugin.setInt(_contextHandle, mConsts.KEY_CONTEXT_TIME, _initialTime)
+    MantellaPlugin.setFloat(_contextHandle, mConsts.KEY_CONTEXT_GAMEDAYS, GameDaysPassed.GetValue() + 1) ; +1 because days start at 0
+
+    if _ingameEvents && _ingameEvents.Length > 0
+        Debug.TraceUser("MC", "Building context with events: " + _ingameEvents.Length)
+    Endif
+
+    ;? string[] past_events = deepcopy(_ingameEvents)
+    MantellaPlugin.setStringArray(_contextHandle, mConsts.KEY_CONTEXT_INGAMEEVENTS, _ingameEvents)
+    ClearIngameEvent()
+
+    ; Add nearby actors context for action targeting
+    int[] nearbyActorHandles = BuildNearbyActorsContext()
+    if nearbyActorHandles && nearbyActorHandles.Length > 0
+        MantellaPlugin.setNestedDictionariesArray(_contextHandle, mConsts.KEY_CONTEXT_NEARBYACTORS, nearbyActorHandles)
+    endIf
+
+    ; Fallout-specific context values
     int customValuesHandle = BuildCustomContextValues()
-    F4SE_HTTP.setNestedDictionary(handle, mConsts.KEY_CONTEXT_CUSTOMVALUES, customValuesHandle)
-    return handle
+    MantellaPlugin.setNestedDictionary(_contextHandle, mConsts.KEY_CONTEXT_CUSTOMVALUES, customValuesHandle)
+    return _contextHandle
 endFunction
 
-int Function BuildCustomContextValues()
-    int handleCustomContextValues = F4SE_HTTP.createDictionary()
-    F4SE_HTTP.setFloat(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_PLAYERHEALTH, repository.PlayerRadFactoredHealth)
-    F4SE_HTTP.setFloat(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_PLAYERRAD, repository.PlayerRadiationPercent)
-    bool isVisionReady = repository.checkAndUpdateVisionPipeline()
-    if isVisionReady
-        F4SE_HTTP.setBool(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_VISION_READY, isVisionReady)
-    F4SE_HTTP.setString(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_VISION_RES, repository.visionResolution)
-    F4SE_HTTP.setInt(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_VISION_RESIZE, repository.visionResize)
-    endif
-    if repository.allowVisionHints && repository.ActorsInCellArray!=""
-        F4SE_HTTP.setString(handleCustomContextValues, mConsts.KEY_ACTOR_CUSTOMVALUES_VISION_HINTSNAMEARRAY, repository.ActorsInCellArray)
-        F4SE_HTTP.setString(handleCustomContextValues, mConsts.KEY_ACTOR_CUSTOMVALUES_VISION_HINTSDISTANCEARRAY, repository.VisionDistanceArray)
-        repository.resetVisionHintsArrays()
-    endif
-    if repository.allowFunctionCalling
-        F4SE_HTTP.setString(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_FUNCTIONS_ENABLED, repository.allowFunctionCalling)
-        ;F4SE_HTTP.setBool(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_FUNCTIONS_STIMPACKCOUNT, GetItemCountOfFirstNPC(StimpackItem))
-        actor[] ActorsWithStimpaks = GetArrayofParticipantCarryingItem(StimpackItem)
-        string StringOfActorsWithStimpaks = repository.ActorsArrayToString(ActorsWithStimpaks)
-        F4SE_HTTP.setString(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_FUNCTIONS_STIMPAK_ACTOR_LIST, StringOfActorsWithStimpaks)
-        actor[] ActorsWithRadaway = GetArrayofParticipantCarryingItem(RadAwayItem)
-        string StringOfActorsWithRadaway = repository.ActorsArrayToString(ActorsWithRadaway)
-        F4SE_HTTP.setString(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_FUNCTIONS_RADAWAY_ACTOR_LIST, StringOfActorsWithRadaway)
-        ;F4SE_HTTP.setBool(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_ACTORS_ALL_FOLLOWERS, AreAllParticipantsFollowersCheck())
-        ;F4SE_HTTP.setBool(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_ACTORS_ALL_SETTLERS, AreAllParticipantsSettlersCheck())
-        ;F4SE_HTTP.setBool(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_ACTORS_ALL_GENERICNPCS, AreAllParticipantsGenericNPCsCheck())
-        F4SE_HTTP.setBool(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_ACTORS_AT_LEAST_ONE_FOLLOWER, IsAtLeastOneParticipantFollowerCheck())
-        F4SE_HTTP.setBool(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_ACTORS_AT_LEAST_ONE_SETTLER, IsAtLeastOneParticipantSettlerCheck())
-        F4SE_HTTP.setBool(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_ACTORS_AT_LEAST_ONE_GENERIC, IsAtLeastOneParticipantGenericCheck())
 
-        if repository.MantellaFunctionInferenceActorNamesList
-            F4SE_HTTP.setString(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_FUNCTIONS_NPCDISPLAYNAMES, repository.MantellaFunctionInferenceActorNamesList)
-            F4SE_HTTP.setString(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_FUNCTIONS_NPCDISTANCES, repository.MantellaFunctionInferenceActorDistanceList)
-            F4SE_HTTP.setString(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_FUNCTIONS_NPCIDS, repository.MantellaFunctionInferenceActorIDsList)
-        endif  
+int Function BuildCustomContextValues()
+    int handleCustomContextValues = MantellaPlugin.createDictionary()
+    ;Unused MantellaPlugin.setFloat(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_PLAYERHEALTH, repository.PlayerRadFactoredHealth)
+    ;Unused MantellaPlugin.setFloat(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_PLAYERRAD, repository.PlayerRadiationPercent)
+    bool isVisionReady = repository.checkAndUpdateVisionPipeline()
+    ; if isVisionReady
+    ;     MantellaPlugin.setBool(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_VISION_READY, isVisionReady)
+    ;     MantellaPlugin.setString(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_VISION_RES, repository.visionResolution)
+    ;     MantellaPlugin.setInt(handleCustomContextValues, mConsts.KEY_CONTEXT_CUSTOMVALUES_VISION_RESIZE, repository.visionResize)
+    ; endif
+
+    if repository.allowVisionHints && repository.ActorsInCellArray!=""
+        MantellaPlugin.setString(handleCustomContextValues, mConsts.KEY_ACTOR_CUSTOMVALUES_VISION_HINTSNAMEARRAY, repository.ActorsInCellArray)
+        MantellaPlugin.setString(handleCustomContextValues, mConsts.KEY_ACTOR_CUSTOMVALUES_VISION_HINTSDISTANCEARRAY, repository.VisionDistanceArray)
+        repository.resetVisionHintsArrays()
     endif
 
     return handleCustomContextValues
 EndFunction
 
+int[] function BuildNearbyActorsContext()
+    ; Scan for nearby actors (excludes Mantella conversation participants)
 
+    Actor[] nearbyActors = repository.ScanNearbyActors()
+    _cachedNearbyActors = nearbyActors
+
+    Debug.TraceUser("MC", "BuildNearbyActorsContext found " + nearbyActors.Length + " nearby actors.")
+    if !nearbyActors || nearbyActors.Length == 0
+        return new int[0]
+    endIf
+
+    int totalEntries = nearbyActors.Length
+    int[] nearbyActorHandles = new int[0]
+    float toMeters = 1.0 / 78.74      ;?
+    int i = 0
+    While i < totalEntries
+        Actor nearbyActor = nearbyActors[i]
+        if nearbyActor != None
+            int actorHandle = MantellaPlugin.createDictionary()
+            MantellaPlugin.setString(actorHandle, "name", nearbyActor.GetDisplayName())
+            float distanceInMeters = PlayerRef.GetDistance(nearbyActor) * toMeters
+            MantellaPlugin.setFloat(actorHandle, "distance", distanceInMeters)
+            nearbyActorHandles.Add(actorHandle)
+        endIf
+        i += 1
+    EndWhile
+
+    if nearbyActorHandles.Length == 0
+        return new int[0]
+    endIf
+
+    return nearbyActorHandles
+endFunction
+
+int function AddCurrentWeather(int contextHandle)
+    If (!PlayerRef.IsInInterior())
+        int handle = MantellaPlugin.createDictionary()
+        Weather currentWeather = Weather.GetCurrentWeather()
+        MantellaPlugin.setString(handle, mConsts.KEY_CONTEXT_WEATHER_ID, currentWeather.GetFormID())
+        MantellaPlugin.setInt(handle, mConsts.KEY_CONTEXT_WEATHER_CLASSIFICATION, currentWeather.GetClassification())
+        MantellaPlugin.setNestedDictionary(contextHandle, mConsts.KEY_CONTEXT_WEATHER, handle)
+    EndIf
+endFunction
 
 int function GetCurrentHourOfDay()
 	float Time = Utility.GetCurrentGameTime()
@@ -1462,200 +1325,44 @@ int function GetCurrentHourOfDay()
 	return Hour
 endFunction
 
-;Function Calling Functions
+Function ShowRepeatingMessage(string messageToShow)
+    _repeatingMessage = messageToShow
+    if repository.showReminderMessages
+        Debug.Notification(_repeatingMessage)
+    else
+        StartTimer(5.0, _repeatingMessageTimer) ; Timer ID 1412 is reserved for repeating message display
+    endIf
+EndFunction
 
-function UpdateCurrentFunctionTarget(actor[] SourceWhoAreTargeting, actor ActorToInsert)
+Function ClearRepeatingMessage()
+    _repeatingMessage = ""
+EndFunction
+
+Actor function GetActorByName(string actorName)
+    ; First, search conversation participants
+    Actor currentActor = GetActorInConversation(actorName)
+    if currentActor != None
+        return currentActor
+    endIf
     
-    ;Clearing the currentFunctionTarget from all factions before putting in a new ref
-    CurrentFunctionTargetArray[CurrentFunctionTargetPointer] 
-    CurrentFunctionTargetArray[CurrentFunctionTargetPointer].SetFactionRank(MantellaFunctionTargetFaction,-2)
-    CurrentFunctionTargetArray[CurrentFunctionTargetPointer].RemoveFromFaction(MantellaFunctionTargetFaction)
-    ;Updating the new ref for the new function target
-    int i = 0
-    ;Set all sources to the same faction rank so that they're all targeting the same target
-    While i < SourceWhoAreTargeting.Length
-        if ActorToInsert==playerRef ;if the source is the player we directly use AI package MantellaFunctionWhoIsSourceTargeting # 5 to prevent faction attribution issues
-            SourceWhoAreTargeting[i].SetFactionRank(MantellaFunctionWhoIsSourceTargeting,5)
-        else
-            SourceWhoAreTargeting[i].SetFactionRank(MantellaFunctionWhoIsSourceTargeting,CurrentFunctionTargetPointer)
-        endif
-        i = i + 1
-    EndWhile
-    ;Set the new target
-    CurrentFunctionTargetArray[CurrentFunctionTargetPointer] = ActorToInsert
-    CurrentFunctionTargetArray[CurrentFunctionTargetPointer].AddToFaction(MantellaFunctionTargetFaction)
-    CurrentFunctionTargetArray[CurrentFunctionTargetPointer].SetFactionRank(MantellaFunctionTargetFaction, CurrentFunctionTargetPointer)
-    int previousPointerValue = CurrentFunctionTargetPointer
-    if CurrentFunctionTargetPointer<CurrentFunctionTargetArray.Length
-        CurrentFunctionTargetPointer= CurrentFunctionTargetPointer+1 ;incrmeent thepointer
-    else
-        CurrentFunctionTargetPointer= 0
-    endif
-endfunction
-
-actor function getFunctionTargetForActor (actor targetingActor)
-    int FactionRank= targetingActor.GetFactionRank(MantellaFunctionWhoIsSourceTargeting)
-    if CurrentFunctionTargetArray[FactionRank]
-        actor actorToReturn = CurrentFunctionTargetArray[FactionRank]
-        return actorToReturn
-    else
-        return None
-    endif
-endfunction
-
-actor function ClearAllFunctionTargets()
-    int i = 0
-    actor currentActor
-    While i < CurrentFunctionTargetArray.Length
-        currentActor = CurrentFunctionTargetArray[i]
-        currentActor.SetFactionRank(MantellaFunctionTargetFaction,(-2))
-        currentActor.RemoveFromFaction(MantellaFunctionTargetFaction)
-        i = i+1
-    Endwhile
-endfunction
-
-int function GetItemCountOfFirstNPC(Form akItem)
-	int i = 0
-    ;Will only return the stimpack count of the first non-player character in conversation
-    While i < Participants.GetSize()
-        if (Participants.GetAt(i) != playerRef)
-            Actor currentactor = Participants.GetAt(i) as Actor
-            return currentactor.GetItemCount (akItem)
-        endif
-        i += 1
-    EndWhile
-    return 0   
+    ; If not in conversation, search the most recent nearby actors cache
+    if _cachedNearbyActors
+        int i = 0
+        While i < _cachedNearbyActors.Length
+            Actor nearbyActor = _cachedNearbyActors[i]
+            if nearbyActor != None
+                ; Match by display name (nearby actors don't have numbered suffixes)
+                if nearbyActor.GetDisplayName() == actorName
+                    return nearbyActor
+                endIf
+            endIf
+            i += 1
+        EndWhile
+    endIf
+    
+    ; Not found in conversation or nearby - return None
+    return None
 endFunction
-
-Actor[] function GetArrayofParticipantCarryingItem(Form akItem)
-	int i = 0
-    Actor[] actorList = new Actor[0]
-    ;Will only return the stimpack count of the first non-player character in conversation
-    While i < Participants.GetSize()
-        if (Participants.GetAt(i) != playerRef)
-            Actor currentactor = Participants.GetAt(i) as Actor
-            if currentactor.GetItemCount (akItem)>0
-                actorList.add(currentactor)
-            endif
-        endif
-        i += 1
-    EndWhile
-    return actorList 
-endFunction
-
-bool function AreAllParticipantsFollowersCheck()
-	int i = 0
-    ;Will only return the stimpack count of the first non-player character in conversation
-    While i < Participants.GetSize()
-        if (Participants.GetAt(i) != playerRef)
-            Actor currentactor = Participants.GetAt(i) as Actor
-            if !currentactor.IsinFaction(CompanionFaction) || (currentactor.GetFactionRank(CompanionFaction))<0
-                return false
-            endif
-        endif
-        i += 1
-    EndWhile
-    ;debug.notification("All participants are followers")
-    return true
-endFunction
-
-bool function AreAllParticipantsSettlersCheck()
-	int i = 0
-    ;Will only return the stimpack count of the first non-player character in conversation
-    While i < Participants.GetSize()
-        if (Participants.GetAt(i) != playerRef)
-            Actor currentactor = Participants.GetAt(i) as Actor
-            if !currentactor.IsinFaction(SettlerFaction) || !currentactor.IsinFaction(PlayerFaction)
-                return false
-            endif
-        endif
-        i += 1
-    EndWhile
-    ;debug.notification("All participants are settlers")
-    return true
-endFunction
-
-bool function AreAllParticipantsGenericNPCsCheck()
-	int i = 0
-    ;Will only return the stimpack count of the first non-player character in conversation
-    While i < Participants.GetSize()
-        if (Participants.GetAt(i) != playerRef)
-            Actor currentactor = Participants.GetAt(i) as Actor
-            if currentactor.IsinFaction(PlayerFaction) || currentactor.IsinFaction(CompanionFaction) 
-                return false
-            endif
-        endif
-        i += 1
-    EndWhile
-    ;debug.notification("All participants are generic NPCs")
-    return true
-endFunction
-
-bool function IsAtLeastOneParticipantFollowerCheck()
-	int i = 0
-    ;Will only return the stimpack count of the first non-player character in conversation
-    While i < Participants.GetSize()
-        if (Participants.GetAt(i) as Actor != playerRef)
-            Actor currentactor = Participants.GetAt(i) as Actor
-            if currentactor.IsinFaction(CompanionFaction) || (currentactor.GetFactionRank(CompanionFaction))>0
-                ;debug.notification("At least one participant is a follower " + currentactor.GetDisplayName())
-                return true
-            endif
-        endif
-        i += 1
-    EndWhile
-    return false
-endFunction
-
-bool function IsAtLeastOneParticipantSettlerCheck()
-	int i = 0
-    ;Will only return the stimpack count of the first non-player character in conversation
-    While i < Participants.GetSize()
-        if (Participants.GetAt(i) as Actor != playerRef)
-            Actor currentactor = Participants.GetAt(i) as Actor
-            if currentactor.IsinFaction(SettlerFaction) && currentactor.IsinFaction(PlayerFaction)
-                ;debug.notification("At least one participant is a settler")
-                return true
-            endif
-        endif
-        i += 1
-    EndWhile
-    return false
-endFunction
-
-bool function IsAtLeastOneParticipantGenericCheck()
-	int i = 0
-    ;Will only return the stimpack count of the first non-player character in conversation
-    While i < Participants.GetSize()
-        if (Participants.GetAt(i)as Actor != playerRef)
-            Actor currentactor = Participants.GetAt(i) as Actor
-            if !currentactor.IsinFaction(PlayerFaction) && !currentactor.IsinFaction(CompanionFaction) 
-                ;debug.notification("At least one paticipant is a generic NPC")
-                return true
-            endif
-        endif
-        i += 1
-    EndWhile
-    return false
-endFunction
-
-bool function CheckIfAtLeastOneParticipantHasSpecificFactionRank(Faction aFaction, int aRank)
-	int i = 0
-    ;Will only return the stimpack count of the first non-player character in conversation
-    While i < Participants.GetSize()
-        Actor currentactor = Participants.GetAt(i) as Actor
-        if currentactor.GetFactionRank(aFaction) == aRank
-            return true
-        endif
-        i += 1
-    EndWhile
-    return false
-endFunction
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;   SUP_F4SE & SUP_F4SEVR functions   ;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 ; Functions to temporarly change some game settings
@@ -1667,13 +1374,13 @@ endFunction
 ; Save the game's original GameSettings before we modify them at conversation start
 Function SaveSettings()
     if !SettingsSaved
-;     TopicInfoPatcher.saveFloat("fAISocialTimerForConversationsMax")       ; Time to wait before NPC can trigger another conversation
-;     TopicInfoPatcher.saveFloat("fAISocialTimerForConversationsMin")
-;     TopicInfoPatcher.saveInt("iAISocialDistanceToTriggerEvent")
-        TopicInfoPatcher.saveFloat("fAIGreetingTimer")
-        TopicInfoPatcher.saveFloat("fAISocialchanceForConversation")      ; % of how likely a NPC will initiate a dialogue with another NPC
-        TopicInfoPatcher.saveFloat("fAIMinGreetingDistance")        ; How close NPC must be to attempt greeting
-        TopicInfoPatcher.saveFloat("fAIForceGreetingTimer")         ; How long NPC must wait before greeting again
+;     MantellaPlugin.saveFloat("fAISocialTimerForConversationsMax")       ; Time to wait before NPC can trigger another conversation
+;     MantellaPlugin.saveFloat("fAISocialTimerForConversationsMin")
+;     MantellaPlugin.saveInt("iAISocialDistanceToTriggerEvent")
+        MantellaPlugin.saveFloat("fAIGreetingTimer")
+        MantellaPlugin.saveFloat("fAISocialchanceForConversation")      ; % of how likely a NPC will initiate a dialogue with another NPC
+        MantellaPlugin.saveFloat("fAIMinGreetingDistance")        ; How close NPC must be to attempt greeting
+        MantellaPlugin.saveFloat("fAIForceGreetingTimer")         ; How long NPC must wait before greeting again
         SettingsSaved = true;
     Endif
 EndFunction
@@ -1698,10 +1405,10 @@ Function RestoreSettings()
         SaveSettings()
     Endif
     if SettingsApplied
-        TopicInfoPatcher.restoreFloat("fAIGreetingTimer")
-        TopicInfoPatcher.restoreFloat("fAISocialchanceForConversation")      ; % of how likely a NPC will initiate a dialogue with another NPC
-        TopicInfoPatcher.restoreFloat("fAIMinGreetingDistance")        ; How close NPC must be to attempt greeting
-        TopicInfoPatcher.restoreFloat("fAIForceGreetingTimer")         ; How long NPC must wait before greeting again
+        MantellaPlugin.restoreFloat("fAIGreetingTimer")
+        MantellaPlugin.restoreFloat("fAISocialchanceForConversation")      ; % of how likely a NPC will initiate a dialogue with another NPC
+        MantellaPlugin.restoreFloat("fAIMinGreetingDistance")        ; How close NPC must be to attempt greeting
+        MantellaPlugin.restoreFloat("fAIForceGreetingTimer")         ; How long NPC must wait before greeting again
         SettingsApplied =  false
     EndIf
 EndFunction

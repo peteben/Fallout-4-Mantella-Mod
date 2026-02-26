@@ -128,9 +128,12 @@ Event OnItemAdded(Form akBaseItem, int aiItemCount, ObjectReference akItemRefere
             else
                 if sourceName != ""
                     itemPickedUpMessage = selfName+" picked up " + itemName + " from " + sourceName
+                Debug.TraceUser("MC", itemPickedUpMessage)
+                conversation.AddIngameEvent(itemPickedUpMessage) 
                 endIf
             Endif
             if itemName != ""
+                ;Debug.TraceUser("MC", itemPickedUpMessage)
                 conversation.AddIngameEvent(itemPickedUpMessage) 
                 ;debug.notification(itemPickedUpMessage)
             endIf
@@ -152,10 +155,12 @@ Event OnItemRemoved(Form akBaseItem, int aiItemCount, ObjectReference akItemRefe
                 if destName != "" 
                     itemDroppedMessage = selfName+" placed " + itemName + " in/on " + destName
                     conversation.AddIngameEvent(itemDroppedMessage) 
+                    ;Debug.TraceUser("MC", itemDroppedMessage)
                 elseif akBaseItem.HasKeyword(AmmoKeyword)
                     ;filtering out ammo from item remove to prevent spam and confusion when a weapon is fired
                 else
                     conversation.AddIngameEvent(itemDroppedMessage) 
+                    ;Debug.TraceUser("MC", itemDroppedMessage)
                 endIf
             Endif
         endif
@@ -190,23 +195,25 @@ endEvent
 Event OnItemEquipped(Form akBaseObject, ObjectReference akReference)
     Actor actorUsing =  self.GetTargetActor()
 
-    if akBaseObject == MantellaIsUsingItem && (actorUsing.GetFactionRank(MantellaFunctionSourceFaction)==4)
-        ;If MantellaIsUsingItem  gets equipped by an NPC (will happen through the AI package) then the NPC gets shifted to waiting mode and activates the spell (the spell has to be activated through script because it will only get stuck in 'preparing to cast' mode forever if called through the AI package.
-        ;Once it's done the spell gets added and removed. It can't be removed directly because the game will consider it a 'temp' value since the NPC never truly gained the spell ingame.
-        repository.NPCAIPackageSelector=0
-        conversation.CauseReassignmentOfParticipantAlias()
-        actorUsing.AddSpell(MantellaIsUsingItem)
-        actor functionTargetActor = conversation.getFunctionTargetForActor(actorUsing)
-        MantellaIsUsingItem.cast(actorUsing, functionTargetActor)
-        actorUsing.UnequipItem(MantellaIsUsingItem, false, false)
-        actorUsing.RemoveSpell(MantellaIsUsingItem)
-        actorUsing.RemoveItem(MantellaIsUsingItem,-1)
-    endif
+    ; if akBaseObject == MantellaIsUsingItem && (actorUsing.GetFactionRank(MantellaFunctionSourceFaction)==4)
+    ;     ;If MantellaIsUsingItem  gets equipped by an NPC (will happen through the AI package) then the NPC gets shifted to waiting mode and activates the spell (the spell has to be activated through script because it will only get stuck in 'preparing to cast' mode forever if called through the AI package.
+    ;     ;Once it's done the spell gets added and removed. It can't be removed directly because the game will consider it a 'temp' value since the NPC never truly gained the spell ingame.
+    ;     repository.NPCAIPackageSelector=0
+    ;     conversation.CauseReassignmentOfParticipantAlias()
+    ;     actorUsing.AddSpell(MantellaIsUsingItem)
+    ;     actor functionTargetActor = conversation.getFunctionTargetForActor(actorUsing)
+    ;     MantellaIsUsingItem.cast(actorUsing, functionTargetActor)
+    ;     actorUsing.UnequipItem(MantellaIsUsingItem, false, false)
+    ;     actorUsing.RemoveSpell(MantellaIsUsingItem)
+    ;     actorUsing.RemoveItem(MantellaIsUsingItem,-1)
+    ; endif
     if repository.targetTrackingOnObjectEquipped && akBaseObject!=MantellaIsUsingItem && conversation.IsActorInConversation(actorUsing)
         String selfName = actorUsing.getdisplayname()
         string itemEquipped = akBaseObject.getname()
+        string equipMessage = selfName+" equipped " + itemEquipped
         ;Debug.MessageBox(selfName+" equipped " + itemEquipped)
-        conversation.AddIngameEvent(selfName+" equipped " + itemEquipped) 
+        conversation.AddIngameEvent(equipMessage) 
+        ;Debug.TraceUser("MC", equipMessage)
     endif
 endEvent
 
@@ -217,7 +224,9 @@ Event OnItemUnequipped(Form akBaseObject, ObjectReference akReference)
         String selfName = actorUsing.getdisplayname()
         string itemUnequipped = akBaseObject.getname()
         ;Debug.MessageBox(selfName+" unequipped " + itemUnequipped)
-        conversation.AddIngameEvent(selfName+" unequipped " + itemUnequipped) 
+        string unequipMessage = selfName+" unequipped " + itemUnequipped
+        conversation.AddIngameEvent(unequipMessage)
+        ;Debug.TraceUser("MC", unequipMessage)
     endif
 endEvent
 
