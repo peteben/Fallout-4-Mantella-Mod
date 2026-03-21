@@ -112,7 +112,7 @@ event OnInit()
     Endif
 
     RegisterForConversationEvents()
-    Debug.TraceUser("MC", "OnInit finished" )
+    ;Debug.TraceUser("MC", "OnInit finished" )
     ;repository.microphoneEnabled = repository.isFO4VR
 endEvent
 
@@ -123,7 +123,7 @@ Function OnLoadGame()
     isVR = repository.isFO4VR
 
     RegisterForConversationEvents()
-    Debug.TraceUser("MC", "OnLoadGame finished" )
+    ;Debug.TraceUser("MC", "OnLoadGame finished" )
 EndFunction
 
 
@@ -222,6 +222,8 @@ function ContinueConversation(string nextAction, int handle)
         RequestContinueConversation()
     elseIf (nextAction == mConsts.KEY_REPLYTYPE_PLAYERTALK)
         ;The player needs to respond, either through text input or voice input depending on the player's settings
+        WaitForSpecificNpcToFinishSpeaking(_lastNpcToSpeak)
+
         If (repository.microphoneEnabled && !repository.useHotkeyToStartMic)
             If repository.isFirstConvo
                 Debug.MessageBox("Speak slowly and clearly into your microphone when you see the 'Listening...' prompt")
@@ -232,6 +234,7 @@ function ContinueConversation(string nextAction, int handle)
             if repository.allowVision
                 repository.GenerateMantellaVision()
             endif
+            _does_accept_player_input = True
             sendRequestForVoiceTranscribe()
             repository.ResetEventSpamBlockers()  ;reset spam blockers to allow the Listener Script to pick up on those again
         Else    
@@ -396,6 +399,9 @@ function NpcSpeak(Actor actorSpeaking, string lineToSay, Topic topicToUse, bool 
         AllSetLookAt(actorSpeaking)
     endif
     
+    ;PB_speak PBQuest = Game.GetFormFromFile(0x000823, "PB.esp") as PB_speak
+    ;Debug.Trace( "PBQuest  " + PBQuest + " " +actorSpeaking + " speak line: " + lineToSay + " with topic: " + topicToUse)
+    ;PBQuest.speak(lineToSay, actorSpeaking, topicToUse)
     actorSpeaking.Say(topicToUse, abSpeakInPlayersHead=isSpokenByNarrator)
     actorSpeaking.SetOverrideVoiceType(none)
     
@@ -580,7 +586,7 @@ EndEvent
 ;which can be used to save time if the context was recently updated and is unlikely to have changed much since then. 
 ;if playerInput is empty, Mantella will capture the player's voice input, transcribe it, and return it to be spoken by the player in-game.
 function sendRequestForPlayerInput(string playerInput, bool updateContext)
-    Debug.TraceUser("MC", "sendRequestForPlayerInput called with input: " + playerInput + " and updateContext: " + updateContext)
+    ;Debug.TraceUser("MC", "sendRequestForPlayerInput called with input: " + playerInput + " and updateContext: " + updateContext)
     if _hasBeenStopped==false
         ;?
         if repository.allowTrackPlayerState
@@ -606,12 +612,13 @@ endFunction
 
 function sendRequestForVoiceTranscribe()
     if(!_does_accept_player_input)
+        debug.TraceUser("MC", "Not sending request for voice transcribe because _does_accept_player_input is false")
         return
     Else
         _does_accept_player_input = False
     endif
 
-    Debug.TraceUser("MC", "sendRequestForVoiceTranscribe called, sending request for player input with voice transcribe")
+    ;Debug.TraceUser("MC", "sendRequestForVoiceTranscribe called, sending request for player input with voice transcribe")
     sendRequestForPlayerInput("", updateContext=True)
     ShowRepeatingMessage("Listening...")
 endFunction
@@ -621,7 +628,7 @@ endFunction
 ;the appropriate SetPlayerResponse...Input function below depending on the type of input requested (dialogue response vs game event log)
 
 function GetPlayerTextInput(string entrytype)
-    Debug.TraceUser("MC", "GetPlayerTextInput called with entrytype: " + entrytype)
+    ;Debug.TraceUser("MC", "GetPlayerTextInput called with entrytype: " + entrytype)
     ;disable for VR
     if !repository.isFO4VR
         if entryType == "playerResponseTextEntry" && _does_accept_player_input
@@ -692,7 +699,9 @@ function WaitForNpcToFinishSpeaking(Actor speaker, Actor lastNpcToSpeak)
             WaitForSpecificNpcToFinishSpeaking(lastNpcToSpeak)
         endIf
         ; wait for the current NPC to finish speaking before starting the next voiceline
-        WaitForSpecificNpcToFinishSpeaking(speaker)
+        if speaker != None
+            WaitForSpecificNpcToFinishSpeaking(speaker)
+        endIf
     endIf
 endFunction
 
@@ -717,6 +726,7 @@ function WaitForSpecificNpcToFinishSpeaking(Actor selectedNpc)
 
     if totalWaitTime > 15.0 ; note that this isn't really in seconds due to the overhead of the loop running
         Debug.Notification("NPC speaking too long, ending wait...")
+        Debug.TraceUser("MC", "Waited for " + selectedNpc.GetDisplayName() + " to finish speaking for " + totalWaitTime + " seconds, ending wait to avoid infinite loop")
     endIf
     ;Debug.TraceUser("MC", selectedNpc.GetDisplayName() + " finished speaking")
 
@@ -799,7 +809,7 @@ Function RaiseActionEvent(Actor speaker, int[] actionsHandles)
                             speaker = GetActorInConversationByIndex(1)
                         endIf
                     endIf
-                    string eventName = EventInterface.EVENT_ACTIONS_PREFIX + actionIdentifier
+                    string eventName = EventInterface.EVENT_ADVANCED_ACTIONS_PREFIX + actionIdentifier
                     ; Legacy action: no arguments, send with simple signature
                     ; This handles both:
                     ;   1. Player-created custom actions built when the old system was in place
@@ -911,6 +921,31 @@ endFunction
 ;            Utils            ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+Actor function GetActorByName(string actorName)
+    ; First, search conversation participants
+    Actor currentActor = GetActorInConversation(actorName)
+    if currentActor != None
+        return currentActor
+    endIf
+    
+    ; If not in conversation, search the most recent nearby actors cache
+    if _cachedNearbyActors
+        int i = 0
+        While i < _cachedNearbyActors.Length
+            Actor nearbyActor = _cachedNearbyActors[i]
+            if nearbyActor != None
+                ; Match by display name (nearby actors don't have numbered suffixes)
+                if nearbyActor.GetDisplayName() == actorName
+                    return nearbyActor
+                endIf
+            endIf
+            i += 1
+        EndWhile
+    endIf
+    
+    ; Not found in conversation or nearby - return None
+    return None
+endFunction
 
 bool Function IsPlayerInConversation()
     int i = 0
@@ -936,6 +971,7 @@ Bool function IsActorInConversation(Actor ActorRef)
 endFunction
 
 Function CauseReassignmentOfParticipantAlias()
+    ;Debug.TraceUser("MC", "Causing reassignment of participant aliases")
     ;This causes Mantella NPC to change AI packages so that they enter specific behavior (usually staying in place while the player talks to them) 
     If (MantellaConversationParticipantsQuest.IsRunning())
         MantellaConversationParticipantsQuest.Stop()
@@ -1279,7 +1315,7 @@ int[] function BuildNearbyActorsContext()
     Actor[] nearbyActors = repository.ScanNearbyActors()
     _cachedNearbyActors = nearbyActors
 
-    Debug.TraceUser("MC", "BuildNearbyActorsContext found " + nearbyActors.Length + " nearby actors.")
+    ;Debug.TraceUser("MC", "BuildNearbyActorsContext found " + nearbyActors.Length + " nearby actors.")
     if !nearbyActors || nearbyActors.Length == 0
         return new int[0]
     endIf
@@ -1329,8 +1365,7 @@ Function ShowRepeatingMessage(string messageToShow)
     _repeatingMessage = messageToShow
     if repository.showReminderMessages
         Debug.Notification(_repeatingMessage)
-    else
-        StartTimer(5.0, _repeatingMessageTimer) ; Timer ID 1412 is reserved for repeating message display
+        StartTimer(10.0, _repeatingMessageTimer) ; Timer ID 1412 is reserved for repeating message display
     endIf
 EndFunction
 
@@ -1338,31 +1373,7 @@ Function ClearRepeatingMessage()
     _repeatingMessage = ""
 EndFunction
 
-Actor function GetActorByName(string actorName)
-    ; First, search conversation participants
-    Actor currentActor = GetActorInConversation(actorName)
-    if currentActor != None
-        return currentActor
-    endIf
-    
-    ; If not in conversation, search the most recent nearby actors cache
-    if _cachedNearbyActors
-        int i = 0
-        While i < _cachedNearbyActors.Length
-            Actor nearbyActor = _cachedNearbyActors[i]
-            if nearbyActor != None
-                ; Match by display name (nearby actors don't have numbered suffixes)
-                if nearbyActor.GetDisplayName() == actorName
-                    return nearbyActor
-                endIf
-            endIf
-            i += 1
-        EndWhile
-    endIf
-    
-    ; Not found in conversation or nearby - return None
-    return None
-endFunction
+
 
 
 ; Functions to temporarly change some game settings

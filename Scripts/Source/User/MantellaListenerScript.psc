@@ -132,7 +132,7 @@ Function LoadMantellaEvents()
 Endfunction
 
 Function CheckGameVersionForMantella()
-    string MantellaVersion="Mantella.esp 0.9.0"
+    string MantellaVersion="Mantella.esp 0.14.0"
     if  !IsF4SEProperlyInstalled() 
         debug.messagebox("F4SE not properly installed, Mantella will not work correctly")
     endif
@@ -141,6 +141,8 @@ Function CheckGameVersionForMantella()
     repository.isFO4VR = false
     if repository.currentFO4version == "1.10.984.0"
         debug.notification("Currently running "+ MantellaVersion + " NG")
+    elseif repository.currentFO4version == "1.11.191.0"
+        debug.notification("Currently running "+ MantellaVersion + " AE")
     elseif repository.currentFO4version == "1.10.163.0"
         debug.notification("Currently running "+ MantellaVersion)
     elseif repository.currentFO4version == "1.2.72.0"
