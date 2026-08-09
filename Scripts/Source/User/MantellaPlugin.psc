@@ -85,3 +85,5 @@ Bool function hasKey(Int object, String key) global native
 bool function LaunchMantellaExe() global native
 string [] function split_string(string toSplit, int width) global native
 
+string function GetVanillaDialogue() global native
+

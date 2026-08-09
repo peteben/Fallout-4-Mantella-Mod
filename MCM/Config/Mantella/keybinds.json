@@ -1,0 +1,58 @@
+{
+    "modName": "Mantella",
+    "keybinds": [
+        {
+            "id": "startconversation",
+            "desc": "Used to start a conversation",
+            "action": {
+              "type": "CallFunction",
+              "form": "Mantella.esp|F99",
+              "scriptName": "MantellaRepository",
+              "function": "startConversationKey"
+            }
+        },
+        {
+            "id": "textresponse",
+            "desc": "Enter text response",
+            "action": {
+              "type": "CallFunction",
+              "form": "Mantella.esp|66FBB",
+              "scriptName": "MantellaConversation",
+              "function": "GetPlayerTextInput",
+              "params": ["playerResponseTextEntry"]
+            }
+        },
+        {
+            "id": "gameevent",
+            "desc": "Enter game events",
+            "action": {
+              "type": "CallFunction",
+              "form": "Mantella.esp|66FBB",
+              "scriptName": "MantellaConversation",
+              "function": "GetPlayerTextInput",
+              "params": ["gameEventEntry"]
+            }
+        },
+        {
+            "id": "textandvisionresponse",
+            "desc": "Enter text for vision response",
+            "action": {
+              "type": "CallFunction",
+              "form": "Mantella.esp|66FBB",
+              "scriptName": "MantellaConversation",
+              "function": "GetPlayerTextInput",
+              "params": ["playerResponseTextAndVisionEntry"]
+            }
+        },
+        {
+            "id": "screenshot",
+            "desc": "Take screenshot for LLM",
+            "action": {
+              "type": "CallFunction",
+              "form": "Mantella.esp|F99",
+              "scriptName": "MantellaConversation",
+              "function": "GenerateMantellaVision"
+            }
+        }
+    ]
+}

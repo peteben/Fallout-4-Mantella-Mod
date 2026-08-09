@@ -24,9 +24,9 @@ ReferenceAlias Property PotentialActor2  Auto
 MantellaRepository property repository auto
 MantellaConversation property conversation auto
 Keyword Property AmmoKeyword Auto Const
-GlobalVariable property MantellaRadiantEnabled auto
-GlobalVariable property MantellaRadiantDistance auto
-GlobalVariable property MantellaRadiantFrequency auto
+;GlobalVariable property MantellaRadiantEnabled auto
+;GlobalVariable property MantellaRadiantDistance auto
+;GlobalVariable property MantellaRadiantFrequency auto
 int RadiantFrequencyTimerID=1
 int CleanupconversationTimer=2
 int DictionaryCleanTimer=3
@@ -38,6 +38,8 @@ Quest Property MantellaNPCCollectionQuest Auto
 RefCollectionAlias Property MantellaNPCCollection  Auto
 Faction Property MantellaFunctionTargetFaction Auto
 Message property MantellaTutorialMessage auto
+
+bool OLDRadiants = true
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   Initialization events and functions  ;
@@ -76,7 +78,7 @@ Function TryToGiveItems()
             PlayerRef.AddPerk(repository.ActivatePerk, False)
         Endif
         itemsGiven=true
-        StartTimer(MantellaRadiantFrequency.getValue(),RadiantFrequencyTimerID)   
+        StartTimer(repository.radiantFrequency,RadiantFrequencyTimerID)   
 	endif
 EndFunction
 
@@ -126,7 +128,7 @@ Function LoadMantellaEvents()
     EndIf
         Worldspace PlayerWorldspace = PlayerRef.GetWorldspace()
     if(PlayerWorldspace != PrewarWorldspace && PlayerWorldspace != None)
-        StartTimer(MantellaRadiantFrequency.getValue(),RadiantFrequencyTimerID)   
+        StartTimer(repository.radiantFrequency,RadiantFrequencyTimerID)   
     endif
     CheckGameVersionForMantella()
 Endfunction
@@ -141,7 +143,7 @@ Function CheckGameVersionForMantella()
     repository.isFO4VR = false
     if repository.currentFO4version == "1.10.984.0"
         debug.notification("Currently running "+ MantellaVersion + " NG")
-    elseif repository.currentFO4version == "1.11.191.0"
+    elseif repository.currentFO4version == "1.11.221.0"
         debug.notification("Currently running "+ MantellaVersion + " AE")
     elseif repository.currentFO4version == "1.10.163.0"
         debug.notification("Currently running "+ MantellaVersion)
@@ -152,6 +154,7 @@ Function CheckGameVersionForMantella()
     else
         debug.messagebox("The current FO4 version doesn't support Mantella.")
     endif
+    repository.isFlat = ! repository.isFO4VR
 Endfunction
 
 bool Function IsF4SEProperlyInstalled() 
@@ -177,22 +180,18 @@ Function registerForPlayerEvents()
         RegisterForPlayerTeleport()
 Endfunction
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;   Timer management  ;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Function CheckForRadiant()
+    if !conversation.IsRunning()
+        if repository.radiantEnabled || repository.approachEnabled
+            Actor [] actorlist = repository.ScanNearbyActors()
+            int randomPct = Utility.RandomInt(1, 100)
 
-Event Ontimer( int TimerID)
-   ;debug.notification("timer "+RadiantFrequencyTimerID+" finished counting from "+repository.radiantFrequency)
-    if TimerID==RadiantFrequencyTimerID
-        if MantellaRadiantEnabled.GetValue()==1.000
-            if !conversation.IsRunning()
-                ;MantellaActorList taken from this tutorial:
-                ;http://skyrimmw.weebly.com/skyrim-modding/detecting-nearby-actors-skyrim-modding-tutorial
+            if OLDRadiants 
                 MantellaActorList.start()
                 Actor Actor1 = PotentialActor1.GetReference() as Actor
                 Actor Actor2 = PotentialActor2.GetReference() as Actor
 
-            ; if both actors found
+                ; if both actors found
                 if (Actor1 && Actor2)
                     float distanceToClosestActor = game.getplayer().GetDistance(Actor1)
                     float maxDistance = ConvertMeterToGameUnits(repository.radiantDistance)
@@ -218,11 +217,30 @@ Event Ontimer( int TimerID)
                     ;Debug.Notification("Actor1 " + Actor1.GetDisplayName() + " Actor2 " + Actor2.GetDisplayName())
                     ;Debug.Notification("Radiant dialogue attempted. No NPCs available")
                 endIf
-    
+
                 MantellaActorList.stop()
-            endIf
+            Else
+                ; New radiants
+
+                if repository.radiantEnabled && (!repository.approachEnabled || randomPct <= repository.triggerRatio)
+                    ; Radiant conversation
+                ElseIf repository.approachEnabled
+                    ; 
+                EndIf
+            Endif
         endIf
-        StartTimer(MantellaRadiantFrequency.getValue(),RadiantFrequencyTimerID)   
+    endIf
+EndFunction
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;   Timer management  ;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+Event Ontimer( int TimerID)
+   ;debug.notification("timer "+RadiantFrequencyTimerID+" finished counting from "+repository.radiantFrequency)
+    if TimerID==RadiantFrequencyTimerID
+        CheckForRadiant()
+        StartTimer(repository.radiantFrequency,RadiantFrequencyTimerID)   
     elseif TimerID==CleanupconversationTimer 
         if conversation.IsRunning() ;attempts to make a hard reset of the conversation if it's still going on for some reason
             ;previous conversation detected, forcing conversation to end.

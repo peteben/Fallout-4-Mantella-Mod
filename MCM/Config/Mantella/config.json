@@ -1,0 +1,603 @@
+{
+    "modName": "Mantella",
+    "displayName": "Mantella",
+    "minMcmVersion": 2,
+    "content": [
+            {
+      "text": "Mantella settings",
+      "align": "center",
+      "type": "text"
+    },
+    {
+      "type": "spacer"
+    }
+    ],
+    "pages": [
+    {
+      "pageDisplayName": "Main",
+      "content": [
+        {
+          "text": "Main settings",
+          "align": "center",
+          "type": "text"
+        },
+        {
+        "type": "section",
+        "text": "Settings"
+        },
+        {
+          "type": "text",
+          "textFromStringProperty": {
+            "form": "Mantella.esp|F99",
+            "scriptName": "MantellaRepository",
+            "propertyName": "testForMCM"
+          },
+          "helpFromStringProperty": {
+            "form": "Mantella.esp|F99",
+            "scriptName": "MantellaRepository",
+            "propertyName": "testForMCMhelp"
+          }
+        },
+        {
+          "text": "DEBUG: Stop all conversations",
+          "type": "button",
+          "action": {
+              "type": "CallFunction",
+              "form": "Mantella.esp|F99",
+              "scriptName": "MantellaRepository",
+              "function": "StopConversations"
+          }
+        },
+        {
+          "text": "DEBUG: Restart Mantella application",
+          "type": "button",
+          "help": "Restarts Mantella.exe",
+          "action": {
+              "type": "CallFunction",
+              "form": "Mantella.esp|F99",
+              "scriptName": "MantellaRepository",
+              "function": "RestartMantellaExe"
+          }
+        },
+        {
+          "text": "Activation option",
+          "type": "switcher",
+          "help": "When enabled, adds a conversation option when approaching NPCs",
+          "valueOptions": {
+              "sourceType": "PropertyValueBool",
+              "sourceForm": "Mantella.esp|F99",
+              "propertyName": "hasActivatePerk"
+          },
+          "action": {
+              "type": "CallFunction",
+              "form": "Mantella.esp|F99",
+              "scriptName": "MantellaRepository",
+              "function": "setActivatePerk",
+              "params": ["{value}"]
+          }
+        },
+        {
+            "text": "isFlat",
+            "type": "hiddenSwitcher",
+            "groupControl": 1,
+            "valueOptions": {
+                "sourceType": "PropertyValueBool",
+                "sourceForm": "Mantella.esp|F99",
+                "propertyName": "isFlat"
+            }
+        },
+        {
+            "text": "Microphone",
+            "type": "switcher",
+            "help": "Enables the microphone and speech recognition",
+            "groupCondition": 1,
+            "valueOptions": {
+                "sourceType": "PropertyValueBool",
+                "sourceForm": "Mantella.esp|F99",
+                "propertyName": "microphoneEnabled"
+            }
+        },
+        {
+            "text": "Crosshair tracking",
+            "type": "switcher",
+            "help": "Enables starting conversation using a hotkey",
+            "groupCondition": 1,
+            "valueOptions": {
+                "sourceType": "PropertyValueBool",
+                "sourceForm": "Mantella.esp|F99",
+                "propertyName": "allowCrosshairTracking"
+            }
+        },
+        {
+          "text": "Advanced settings",
+          "type": "switcher",
+          "groupControl": 2
+        },
+        {
+          "type": "section",
+          "text": "Advanced settings",
+            "groupCondition": 2
+        },
+        {
+          "text": "Reset to defaults",
+          "type": "button",
+          "help": "This will reset all settings to their default values.",
+          "groupCondition": 2,
+          "action": {
+              "type": "CallFunction",
+              "form": "Mantella.esp|F99",
+              "scriptName": "MantellaRepository",
+              "function": "reinitializeVariables"
+          }
+        },
+        {
+            "text": "HTTP port",
+            "type": "slider",
+            "help": "Mantella default is 4999. Change both here and in Mantella web page if collision occurs with another app.",
+            "groupCondition": 2,
+            "valueOptions": {
+                "min": 4999,
+                "max": 49999,
+                "step": 1,
+                "sourceType": "PropertyValueInt",
+                "sourceForm": "Mantella.esp|F99",
+                "scriptName": "MantellaRepository",
+                "propertyName": "Httpport"
+            }
+        },
+        {
+            "text": "HTTP timeout (seconds)",
+            "type": "slider",
+            "help": "Default is 240. Increase to allow more time for LLM or TTS responses.",
+            "groupCondition": 2,
+            "valueOptions": {
+                "min": 60,
+                "max": 600,
+                "step": 1,
+                "sourceType": "PropertyValueInt",
+                "sourceForm": "Mantella.esp|F99",
+                "scriptName": "MantellaRepository",
+                "propertyName": "HTTPTimeOutHolotapeValue"
+            }
+        },
+        {
+            "text": "Start tutorial",
+            "type": "button",
+            "help": "Click this to start the tutorial again.",
+            "groupCondition": 2,
+            "action": {
+              "type": "CallFunction",
+              "form": "Mantella.esp|F99",
+              "scriptName": "MantellaRepository",
+              "function": "ResetTutorial"
+            }
+        }
+      ]
+    },
+    {
+      "pageDisplayName": "Radiants",
+      "content": [
+        {
+          "text": "Radiant settings",
+          "align": "center",
+          "type": "text"
+        },
+        {
+        "type": "spacer"
+        },
+        {
+            "text": "Radiant conversations",
+            "type": "switcher",
+            "help": "When enabled, allows NPCs to initiate conversations amongst themselves.",
+            "valueOptions": {
+                "sourceType": "PropertyValueBool",
+                "sourceForm": "Mantella.esp|F99",
+                "propertyName": "radiantEnabled"
+            }
+        },
+        {
+          "text": "Radiant distance, in meters",
+          "type": "slider",
+          "help": "How close NPCs need to be to start a conversation",
+          "valueOptions": {
+              "min": 10.0,
+              "max": 150.0,
+              "step": 0.1,
+              "sourceType": "PropertyValueFloat",
+              "sourceForm": "Mantella.esp|F99",
+              "propertyName": "radiantDistance"
+          }
+        },
+        {
+          "text": "Radiant frequency",
+          "type": "slider",
+          "help": "Minimum time in seconds, between radiant convesations",
+          "valueOptions": {
+              "min": 10.0,
+              "max": 1800.0,
+              "step": 10.0,
+              "sourceType": "PropertyValueFloat",
+              "sourceForm": "Mantella.esp|F99",
+              "propertyName": "radiantFrequency"
+          }
+        },
+        {
+          "text": "Check",
+          "type": "button",
+          "action": {
+            "type":"CallFunction",
+            "form":"Mantella.esp|F99",
+            "scriptName": "MantellaRepository",
+            "function": "showRadiantVars"    
+          }
+        }
+      ]
+    },
+    {
+    "pageDisplayName": "Player Event tracking",
+    "content": [
+      {
+        "text": "Event tracking settings",
+        "align": "center",
+        "type": "text"
+      },
+      {
+      "type": "spacer"
+      },
+      {
+        "text": "Player item tracking",
+        "type": "switcher",
+        "help": "Allows player item interactions to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "propertyName": "playerTrackingOnItemAdded"
+        },
+        "action": {
+            "type": "CallFunction",
+            "form": "Mantella.esp|F99",
+            "scriptName": "MantellaRepository",
+            "function": "togglePlayerItemEventTracking",
+            "params": ["{value}"]
+        }
+      },
+      {
+        "text": "Player hit tracking",
+        "type": "switcher",
+        "help": "Allows player hit events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "propertyName": "playerTrackingOnHit"
+        }
+      },
+      {
+        "text": "Player location tracking",
+        "type": "switcher",
+        "help": "Allows player location change events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "propertyName": "playerTrackingOnLocationChange"
+        }
+      },
+      {
+        "text": "Player equip tracking",
+        "type": "switcher",
+        "help": "Allows player equip events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "propertyName": "playerTrackingOnObjectEquipped"
+        },
+        "action": {
+          "type": "CallFunction",
+          "form": "Mantella.esp|F99",
+          "scriptName": "MantellaRepository",
+          "function": "togglePlayerEquipEventTracking",
+          "params": ["{value}"]
+        }
+      },
+      {
+        "text": "Player sit/workbench tracking",
+        "type": "switcher",
+        "help": "Allows player sit or workbench events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "propertyName": "playerTrackingOnSit"
+        },
+        "action": {
+          "type": "CallFunction",
+          "form": "Mantella.esp|F99",
+          "scriptName": "MantellaRepository",
+          "function": "togglePlayerSitEventTracking",
+          "params": ["{value}"]
+        }
+      },
+      {
+        "text": "Player attack tracking",
+        "type": "switcher",
+        "help": "Allows player attack/fire weapon events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "scriptName": "MantellaRepository",
+            "propertyName": "playerTrackingFireWeapon"
+        }
+      },
+      {
+        "text": "Player radiation damage tracking",
+        "type": "switcher",
+        "help": "Allows player radiation damage events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "scriptName": "MantellaRepository",
+            "propertyName": "playerTrackingRadiationDamage"
+        }
+      },
+      {
+        "text": "Player sleep tracking",
+        "type": "switcher",
+        "help": "Allows player sleep/wake events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "scriptName": "MantellaRepository",
+            "propertyName": "playerTrackingSleep"
+        }
+      },
+      {
+        "text": "Player crippling tracking",
+        "type": "switcher",
+        "help": "Allows player crippled events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "scriptName": "MantellaRepository",
+            "propertyName": "playerTrackingCripple"
+        }
+      },
+      {
+        "text": "Player heal teammate tracking",
+        "type": "switcher",
+        "help": "Allows player heal teammate events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "scriptName": "MantellaRepository",
+            "propertyName": "playerTrackingHealTeammate"
+        }
+      }
+      ]
+    },
+    {
+    "pageDisplayName": "NPC Event tracking",
+    "content": [
+      {
+        "text": "NPC Event tracking settings",
+        "align": "center",
+        "type": "text"
+      },
+      {
+      "type": "spacer"
+      },
+      {
+        "text": "NPC item tracking",
+        "type": "switcher",
+        "help": "Allows NPC item interactions to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "propertyName": "targetTrackingItemAdded"
+        },
+        "action": {
+            "type": "CallFunction",
+            "form": "Mantella.esp|F99",
+            "scriptName": "MantellaRepository",
+            "function": "toggleTargetItemEventTracking",
+            "params": ["{value}"]
+        }
+      },
+      {
+        "text": "NPC hit tracking",
+        "type": "switcher",
+        "help": "Allows NPC hit events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "propertyName": "targetTrackingOnHit"
+        }
+      },
+      {
+        "text": "NPC combat state tracking",
+        "type": "switcher",
+        "help": "Allows NPC combat state change events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "propertyName": "targetTrackingOnCombatStateChanged"
+        }
+      },
+      {
+        "text": "NPC equip tracking",
+        "type": "switcher",
+        "help": "Allows NPC equip events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "propertyName": "targetTrackingOnObjectEquipped"
+        },
+        "action": {
+          "type": "CallFunction",
+          "form": "Mantella.esp|F99",
+          "scriptName": "MantellaRepository",
+          "function": "toggleTargetEquipEventTracking",
+          "params": ["{value}"]
+        }
+      },
+      {
+        "text": "NPC sit/workbench tracking",
+        "type": "switcher",
+        "help": "Allows NPC sit or workbench events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "propertyName": "targetTrackingOnSit"
+        },
+        "action": {
+          "type": "CallFunction",
+          "form": "Mantella.esp|F99",
+          "scriptName": "MantellaRepository",
+          "function": "toggleTargetOnSitEventTracking",
+          "params": ["{value}"]
+        }
+      },
+      {
+        "text": "NPC complete command tracking",
+        "type": "switcher",
+        "help": "Allows NPC command completed events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "scriptName": "MantellaRepository",
+            "propertyName": "targetTrackingCompleteCommands"
+        }
+      },
+      {
+        "text": "NPC command tracking",
+        "type": "switcher",
+        "help": "Allows NPC command events to be sent to Mantella.",
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "scriptName": "MantellaRepository",
+            "propertyName": "targetTrackingGiveCommands"
+        }
+     }
+      ]
+    },
+    {
+      "pageDisplayName": "Vision",
+      "content": [
+        {
+          "text": "Vision settings",
+          "align": "center",
+          "type": "text"
+        }
+      ]
+   },
+   {
+    "pageDisplayName": "Hotkeys",
+    "content": [
+      {
+        "text": "Hotkey settings",
+        "align": "center",
+        "type": "text"
+      },
+      {
+        "type": "spacer",
+        "numLines": 3
+      },
+      {
+        "text": "isFlat",
+        "type": "hiddenSwitcher",
+        "groupControl": 3,
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "propertyName": "isFlat"
+        }
+      },
+      {
+        "text": "isVR",
+        "type": "hiddenSwitcher",
+        "groupControl": 4,
+        "valueOptions": {
+            "sourceType": "PropertyValueBool",
+            "sourceForm": "Mantella.esp|F99",
+            "propertyName": "isFO4VR"
+        }
+      },
+      {
+        "text": "Hotkeys are not available in Fallout 4 VR.",
+        "align": "left",
+        "type": "text",
+        "groupCondition": 4
+      },
+      {
+        "id": "startconversation",
+        "text": "Start conversation or add/remove actors",
+        "type": "hotkey",
+        "groupCondition": 3,
+        "help": "Choose the key used to start conversation, or ad and remove actors from conversations."
+      },
+      {
+        "id": "textresponse",
+        "text": "Enter player text response for conversation.",
+        "type": "hotkey",
+        "groupCondition": 3,
+        "help": "Choose the key used to enter player dialogue."
+      },
+      {
+        "id": "gameevent",
+        "text": "Enter game events",
+        "type": "hotkey",
+        "groupCondition": 3,
+        "help": "Choose the key used to add game events to the conversation."
+      },
+      {
+        "id": "textandvisionresponse",
+        "text": "Enter player response and send screenshot",
+        "type": "hotkey",
+        "groupCondition": 3,
+        "help": "Choose the key used to enter player text and send a screenshot."
+      },
+      {
+        "id": "screenshot",
+        "text": "Take a screenshot to be sent to the LLM",
+        "type": "hotkey",
+        "groupCondition": 3,
+        "help": "Choose the key used to take a screenshot and send it to the LLM on your next response."
+      }
+     ]
+    },
+    {
+      "pageDisplayName": "Vanilla dialogue",
+      "content": [
+        {
+          "text": "Vanilla dialogue settings",
+          "align": "center",
+          "type": "text"
+        },
+        {
+            "type": "spacer"
+        },
+        {
+            "text": "Vanilla dialogue awareness",
+            "type": "switcher",
+            "help": "When enabled, vanilla dialogue is captured and fed to Mantella when needed.",
+            "valueOptions": {
+                "sourceType": "PropertyValueBool",
+                "sourceForm": "Mantella.esp|F99",
+                "propertyName": "allowVanillaDialogue"
+            }
+        },
+        {
+          "text": "Stale dialogue expiration (hours)",
+          "type": "slider",
+          "help": "How long stored dialogue lines are kept in memory before being purged.",
+          "valueOptions": {
+              "min": 6.0,
+              "max": 240.0,
+              "step": 1.0,
+              "sourceType": "PropertyValueFloat",
+              "sourceForm": "Mantella.esp|F99",
+              "propertyName": "dialogueExpirationTime"
+          }
+        }
+      ]
+    }
+    ]
+}

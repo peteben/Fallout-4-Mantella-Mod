@@ -20,16 +20,25 @@ RefCollectionAlias Property MantellaNPCCollection  Auto
 
 
 ;endFlagMantellaConversationOne exists to prevent conversation loops from getting stuck on NPCs if Mantella crashes or interactions gets out of sync
-bool property endFlagMantellaConversationOne auto
+;bool property endFlagMantellaConversationOne auto
 string property currentFO4version auto
 bool property isFO4VR auto Conditional
+
+bool property isFlat auto
+
 bool property microphoneEnabled auto Conditional
 bool property useHotkeyToStartMic auto
 bool property showReminderMessages auto
 
-bool property radiantEnabled auto
-float property radiantDistance auto
-float property radiantFrequency auto
+bool property radiantEnabled auto 
+float property radiantDistance auto 
+float property radiantFrequency auto conditional
+bool property approachEnabled auto
+int property triggerRatio auto
+bool property showRadiantDialogueMessages auto
+
+bool property allowVanillaDialogue auto Conditional
+float property dialogueExpirationTime = 48.0 auto
 
 string property playerCharacterDescription1 auto
 string property playerCharacterDescription2 auto
@@ -83,6 +92,7 @@ bool property allowActionInventory auto Conditional
 bool property allowCrosshairTracking auto Conditional
 Spell property MantellaSpell auto
 Perk property ActivatePerk auto
+bool property hasActivatePerk auto
 ;variables below for Player game event tracking
 bool property playerTrackingOnItemAdded auto Conditional
 bool property playerTrackingOnItemRemoved auto Conditional
@@ -129,8 +139,8 @@ float property PlayerRadFactoredHealth auto
 float property PlayerRadiationPercent auto
 
 ;item variables
-int property StimpackCount auto
-int property RadAwayCount auto
+;int property StimpackCount auto
+;int property RadAwayCount auto
 
 ;misc Variabales
 ActorValue property HealthAV auto
@@ -155,6 +165,10 @@ bool property showVisionSettingsTutorial auto
 bool property showNPCActionsTutorial auto
 bool property showEventTrackingTutorial auto
 bool property showConversationTimeoutTutorial auto
+
+string property testForMCM = "MCM string" auto
+string property testForMCMhelp = "MCM help string" auto
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   Game management functions and events   ;
@@ -181,8 +195,20 @@ Function reloadKeys()
     conversation.RestoreSettings()                              ; Make sure Game settings are restored after a load
 Endfunction
 
+Function showRadiantVars()
+    Debug.TraceUser("MC","Radiants: " + radiantEnabled + " dist:" + radiantDistance + " freq:" + radiantFrequency)
+EndFunction
+
+Function setRadiantVars()
+    radiantEnabled = ! radiantEnabled
+    radiantDistance = 60.0
+    Debug.Notification("Radiants: " + radiantEnabled + " dist:" + radiantDistance)
+EndFunction
+
+
 
 Function StopConversations()
+    Debug.TraceUser("MC", "StopConversation")
     If (conversation.IsRunning())
         conversation.EndConversation()
         StartTimer(5,CleanupconversationTimer)              ;Start a timer to make second hard reset if conversation is still running after
@@ -231,14 +257,13 @@ Function reinitializeVariables()
     togglePlayerEventTracking(true)
     toggleTargetEventTracking(true)
     HTTPTimeOutHolotapeValue = 240
-    Actor PlayerRef = Game.GetPlayer()
+    ;Actor PlayerRef = Game.GetPlayer()
     ; If !(PlayerRef.HasPerk(ActivatePerk))
     ;     PlayerRef.AddPerk(ActivatePerk, False)
     ; Endif
     conversation.conversationIsEnding = false
     hideFunctionMenu=false
     hideVisionMenu=false
-    allowTrackPlayerState=true
 EndFunction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -265,6 +290,8 @@ Function togglePlayerEventTracking(bool bswitch)
     playerTrackingSleep = bswitch
     playerTrackingCripple = bswitch
     playerTrackingHealTeammate = bswitch
+    playerTrackingOnTimeChange = bswitch
+    playerTrackingOnWeatherChange = bswitch
     allowTrackPlayerState = bswitch
 EndFunction
 
@@ -277,6 +304,18 @@ Function toggleTrackPlayerState (bool bswitch)
     endif
     allowTrackPlayerState = bswitch
 EndFunction
+
+Function toggleVanillaDialogue (bool bswitch)
+    ;Vanilla dialogue tracking
+    if bswitch
+        Debug.notification("Vanilla dialogue tracking is now ON")
+    else
+        Debug.notification("Vanilla dialogue tracking is now OFF")
+    endif
+    allowVanillaDialogue = bswitch
+EndFunction
+
+
 
 Function togglePlayerItemEventTracking(bool bswitch)
     ;Player tracking variables below
@@ -403,6 +442,24 @@ Function toggleTargetEventTracking(bool bswitch)
     targetTrackingGiveCommands = bswitch
 EndFunction
 
+Function toggleTargetItemEventTracking(bool bswitch)
+    ;Player tracking variables below
+    targetTrackingItemAdded = bswitch
+    targetTrackingItemRemoved = bswitch
+EndFunction
+
+Function toggleTargetEquipEventTracking(bool bswitch)
+    ;Player tracking variables below
+    targetTrackingOnObjectEquipped = bswitch
+    targetTrackingOnObjectUnequipped = bswitch
+EndFunction
+
+Function toggleTargetOnSitEventTracking(bool bswitch)
+    ;Player tracking variables below
+    targetTrackingOnSit = bswitch
+    targetTrackingOnGetUp = bswitch
+EndFunction
+
 Function toggleAllowAggro(bool bswitch)
     allowActionAggro = bswitch
     if bswitch
@@ -464,14 +521,27 @@ Function toggleAllowVisionHints(bool bswitch)
     endif
 EndFunction
 
+Function setActivatePerk(bool enable)
+    Actor PlayerRef = Game.GetPlayer()
+    Debug.Notification("setActivatePerk " + enable)
+    hasActivatePerk = enable
+    if enable
+        PlayerRef.AddPerk(ActivatePerk, False)
+    Else
+		PlayerRef.RemovePerk(ActivatePerk)
+    Endif
+EndFunction
+
 
 Function ToggleActivatePerk()
     Actor PlayerRef = Game.GetPlayer()
     If (PlayerRef.HasPerk(ActivatePerk))
 		PlayerRef.RemovePerk(ActivatePerk)
+        hasActivatePerk = false
         Debug.notification("Alt conversation activation option is now OFF")
 	Else
         PlayerRef.AddPerk(ActivatePerk, False)
+        hasActivatePerk = true
         Debug.notification("Alt conversation activation option is now ON")
 	EndIf
 EndFunction
@@ -505,34 +575,34 @@ Function listMenuState(String aMenu)
         endif
         doMainSettingsTutorial()
     elseif aMenu=="Radiant"
-        showRadiantSettingsTutorial()
+        doRadiantSettingsTutorial()
     elseif aMenu=="HTTP_Settings"
         debug.notification("The HTTP port is currently "+ConstantsScript.HTTP_PORT)
         doHTTPTutorial()
     elseif aMenu=="Hotkeys"
         if textkeycode!=0
             Debug.notification("Current text response hotkey is "+textkeycode)
-        ElseIf (true)
+        Else
             Debug.notification("Current text response hotkey is unassigned")
         endif
         if gameEventkeycode!=0
             Debug.notification("Current custom game event input hotkey is "+gameEventkeycode)
-        ElseIf (true)
+        Else
             Debug.notification("Current custom game event input hotkey is unassigned")
         endif
         if startConversationkeycode!=0
             Debug.notification("Current start conversation hotkey is "+startConversationkeycode)
-        ElseIf (true)
+        Else
             Debug.notification("Current start conversation hotkey is unassigned")
         endif
         if textAndVisionKeycode!=0
             Debug.notification("Current text response and vision hotkey is "+textAndVisionKeycode)
-        ElseIf (true)
+        Else
             Debug.notification("Current text response and vision hotkey is unassigned")
         endif
         if MantellaVisionKeycode!=0
             Debug.notification("Current Mantella Vision (screenshot) hotkey is "+MantellaVisionKeycode)
-        ElseIf (true)
+        Else
             Debug.notification("Current Mantella Vision (screenshot) hotkey is unassigned")
         endif
         doHotkeysTutorial()
@@ -547,15 +617,15 @@ Function listMenuState(String aMenu)
         else
             Debug.notification("NPCs events are NOT being tracked by Mantella")
         endif
-        showEventTrackingTutorial()
+        doEventTrackingTutorial()
     elseif aMenu=="Vision"
         debug.notification("Vision resolution is set to "+visionResolution)
         debug.notification("Images will be resized to "+visionResize)
-        showVisionSettingsTutorial()
+        doVisionSettingsTutorial()
     elseif aMenu=="Conversation_timeout"
-        showConversationTimeoutTutorial()
+        doConversationTimeoutTutorial()
     elseif aMenu=="NPC_Actions"    
-        showNPCActionsTutorial()
+        doNPCActionsTutorial()
     endif
 EndFunction
 
@@ -582,6 +652,41 @@ Event OnMenuOpenCloseEvent(string asMenuName, bool abOpening)
     endif
 endEvent
 
+Function startConversationKey()
+    if allowCrosshairTracking
+        int actorID = MantellaPlugin.GetLastCrosshairActorID()
+        Debug.TraceUser("MC", "actorID " + actorID)
+        if actorID == 0
+            return
+        Endif
+
+        CrosshairActor = Game.GetForm(actorID) as Actor
+        Debug.Notification("Crosshair actor is: " + CrosshairActor.GetDisplayName())
+
+        if CrosshairActor != none
+            String actorName = CrosshairActor.GetDisplayName()
+            bool isTargetInConversation = conversation.IsActorInConversation(CrosshairActor)
+            float distanceFromConversationTarget = Game.GetPlayer().GetDistance(CrosshairActor)
+
+            if distanceFromConversationTarget<1500
+                ; if actor not already loaded or player is interrupting radiant dialogue
+                bool bIsPlayerInConversation = conversation.IsPlayerInConversation()
+                
+                if !isTargetInConversation
+                    debug.notification("Attempting to start conversation with "+actorName)
+                    MantellaSpell.cast(Game.GetPlayer(), CrosshairActor)
+                ElseIf !bIsPlayerInConversation
+                    debug.notification("Adding player to radiant conversation with "+actorName)
+                    MantellaSpell.cast(CrosshairActor, Game.GetPlayer())
+                else
+                    debug.notification("Displaying conversation menu for "+actorName)
+                    MantellaSpell.cast(Game.GetPlayer(), CrosshairActor)
+                endif
+                Utility.Wait(0.5)
+            endif
+        endif
+    EndIf
+EndFunction
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -590,12 +695,15 @@ endEvent
 
 Event Onkeydown(int keycode)
     bool menuMode = MantellaPlugin.isMenuModeActive()
+    Debug.TraceUser("MC", "Onkeydown " + keycode)
+
     if !menuMode
         if keycode == startConversationkeycode
             if allowCrosshairTracking
                 ; float [] Actorxyz = MantellaPlugin.GetLastActorCoords()
                 ; CrosshairActor = Game.FindClosestActor(Actorxyz[0], Actorxyz[1], Actorxyz[2], 20.0)
                 int actorID = MantellaPlugin.GetLastCrosshairActorID()
+                Debug.TraceUser("MC", "actorID " + actorID)
                 if actorID == 0
                     return
                 Endif
@@ -612,13 +720,13 @@ Event Onkeydown(int keycode)
                     bool bIsPlayerInConversation = conversation.IsPlayerInConversation()
                     
                     if !isTargetInConversation
-                        debug.notification("Attempting to start conversation with "+CrosshairActor.GetDisplayName())
+                        debug.notification("Attempting to start conversation with "+actorName)
                         MantellaSpell.cast(Game.GetPlayer(), CrosshairActor)
                     ElseIf !bIsPlayerInConversation
-                        debug.notification("Adding player to radiant conversation with "+CrosshairActor.GetDisplayName())
+                        debug.notification("Adding player to radiant conversation with "+actorName)
                         MantellaSpell.cast(CrosshairActor, Game.GetPlayer())
-                    elseif isTargetInConversation
-                        debug.notification("Displaying conversation menu for "+CrosshairActor.GetDisplayName())
+                    else
+                        debug.notification("Displaying conversation menu for "+actorName)
                         MantellaSpell.cast(Game.GetPlayer(), CrosshairActor)
                     endif
                     Utility.Wait(0.5)
@@ -648,23 +756,23 @@ function setHotkey(int keycode, string keyType)
     if keyType=="Dialogue"
         unRegisterForKey(textkeycode)
         textkeycode = keycode
-        RegisterForKey(textkeycode)
+        ;RegisterForKey(textkeycode)
     elseif keyType=="GameEvent"
         unRegisterForKey(gameEventkeycode)
         gameEventkeycode = keycode
-        RegisterForKey(gameEventkeycode)
+        ;RegisterForKey(gameEventkeycode)
     elseif keyType=="StartConversation"
         unRegisterForKey(startConversationkeycode)
         startConversationkeycode = keycode
-        RegisterForKey(startConversationkeycode)
+        ;RegisterForKey(startConversationkeycode)
     elseif keyType=="DialogueAndVision"
         unRegisterForKey(textAndVisionKeycode)
         textAndVisionKeycode = keycode
-        RegisterForKey(textAndVisionKeycode)
+        ;RegisterForKey(textAndVisionKeycode)
     elseif keyType=="MantellaVision"
         unRegisterForKey(MantellaVisionKeycode)
         MantellaVisionKeycode = keycode
-        RegisterForKey(MantellaVisionKeycode)
+        ;RegisterForKey(MantellaVisionKeycode)
     endif
 endfunction
 
@@ -825,7 +933,7 @@ EndFunction
 Actor[] Function ScanNearbyActors()
     MantellaNearbyActors.start()
     int countNearbyActors = MantellaNearbyActorsCollection.GetCount()
-    Debug.TraceUser("MC", "Scanning for nearby actors... Found " + countNearbyActors)
+    ;Debug.TraceUser("MC", "Scanning for nearby actors... Found " + countNearbyActors)
     Actor[] nearbyActors = new Actor[countNearbyActors]
     int i = 0
     while (i < nearbyActors.Length)
@@ -879,17 +987,16 @@ Endfunction
 Function UpdateFunctionInferenceNPCArrays(Actor[] ActorArray) 
     actor playerRef = game.GetPlayer()
     Float[] currentDistanceArray = new Float[0]
-    String[] currentFormIDArray = new String[0] ;is this line really necessary? 
+    ;String[] currentFormIDArray = new String[0] ;is this line really necessary? 
     int icount = ActorArray.Length
     int iindex = 0
     MantellaFunctionInferenceActorList = new Actor[0] 
     while (iindex < icount)
         Actor Actori = ActorArray[iindex]
         float currentDistance = playerRef.GetDistance(Actori)
-        string currentFormID = Actori.GetFormID() as string
         MantellaFunctionInferenceActorList.add(Actori) ;is this line really necessary? Could be done in one shot out of the loop
         currentDistanceArray.add(currentDistance)
-        currentFormIDArray.add(currentFormID) ;is this line really necessary? 
+        ;currentFormIDArray.add(currentFormID) ;is this line really necessary? 
         iindex = iindex + 1
     endwhile
     MantellaFunctionInferenceActorNamesList=ActorsArrayToString(MantellaFunctionInferenceActorList) 
@@ -933,7 +1040,7 @@ String Function ActorsArrayToFormIDString (Actor[] ActorArray)
     string currentActorFormID =""
     While i < ActorArray.Length
         Actor currentActor = ActorArray[i]
-        currentActorFormID = currentActor.GetFormID()
+        currentActorFormID = currentActor.GetFormID() as string
         StringOutput += "["+currentActorFormID+"]"
         if i != (ActorArray.Length-1)
             StringOutput += ","
@@ -987,16 +1094,6 @@ Function RemoveFactionFromActors(Actor[] ActorArray, faction FactionToRemove)
     EndWhile
 Endfunction
 
-String function ConvertActorAndDistanceArrayToString(Actor[] ActorNamesArray, Float[] DistanceArray)
-    int k
-    string actorList
-    string distancelist
-    While k < ActorNamesArray.Length
-        actorList += "Name : "+ActorNamesArray[k]+", distance : "+DistanceArray[k]+", "
-        k += 1
-    EndWhile
-    return actorList
-Endfunction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   Player and NPC state reporting   ;
@@ -1055,7 +1152,7 @@ string function constructPlayerState()
     endif
     int i=1
     while i <= (playerStatePositiveCount-2)
-        if i == playerStatePositiveCount
+        if i == playerStatePositiveCount -2
             playerState += playerStateArray[i]
         else
             playerState += playerStateArray[i] + ", "
@@ -1085,7 +1182,6 @@ endfunction
 
 float function getRadFactoredMaxHealth(actor currentActor)
     float MaxHealth= currentActor.getvalue(HealthAV)/currentActor.GetValuePercentage(HealthAV)
-    float radPercent
     float radFactoredMaxHealth=MaxHealth*(1-getRadPercent(currentActor))
     return radFactoredMaxHealth
 endfunction
@@ -1137,6 +1233,10 @@ Endfunction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Function ResetTutorial()
+    while Utility.IsInMenuMode()
+        Utility.Wait(0.5)
+    EndWhile
+    Debug.Notification("Reset tutorial")
     TriggerTutorialVariables(true)
     doTutorialIntro()
 Endfunction
@@ -1186,7 +1286,7 @@ function doMainSettingsTutorial()
 Endfunction
 
 Function doHotkeysTutorial()
-    if tutorialActivated && showHolotapeSettingsTutorial && !isFO4VR
+    if tutorialActivated && showHotKeysTutorial && !isFO4VR
         debug.MessageBox("To change the hotkeys you have to enter scan codes numbers. For example :'H' is 72. 'G' is 71. The complete list is in the holotape options of this submenu. ")
         debug.MessageBox("Text response will only work if the microphone is OFF.")
         debug.MessageBox("The initiate conversation button works by tracking the player crossshair and will only work if the crosshair event tracking is on (see event submenu)")
@@ -1206,7 +1306,7 @@ Function doHTTPTutorial()
     endif
 EndFunction
 
-Function    showRadiantSettingsTutorial()
+Function    doRadiantSettingsTutorial()
     if tutorialActivated && showRadiantSettingsTutorial
         debug.MessageBox("Turn ON radiant dialogue to have NPCs start conversations between themselves at set intervals. Keep in mind this will use tokens from your AI subscription service")
         debug.MessageBox("You can jump in a radiant conversation at any time by using the usual conversation activation methods.")
@@ -1215,7 +1315,7 @@ Function    showRadiantSettingsTutorial()
     endif
 EndFunction
 
-Function    showVisionSettingsTutorial()
+Function    doVisionSettingsTutorial()
     if tutorialActivated && showVisionSettingsTutorial
         debug.MessageBox("These options allow the AI to see what you see. You must be using a vision enabled LLM for this to work (refer to the description of the model in the Mantella.exe web interface)")
         debug.MessageBox("Turning on automatic vision will send a screenshot of the player view  to the AI at the time of the player's response.")
@@ -1228,7 +1328,7 @@ Function    showVisionSettingsTutorial()
     endif
 EndFunction
 
-Function    showNPCActionsTutorial()
+Function    doNPCActionsTutorial()
     if tutorialActivated && showNPCActionsTutorial
         debug.MessageBox("You can choose multiple additional actions in this tab.")
         debug.MessageBox("'NPC aggro' allow NPCs to get offended by your comments which means they might attack you. You can then beg for forgiveness to get them to stop.")
@@ -1240,7 +1340,7 @@ Function    showNPCActionsTutorial()
     endif
 EndFunction
 
-Function    showEventTrackingTutorial()
+Function    doEventTrackingTutorial()
     if tutorialActivated && showEventTrackingTutorial
         debug.MessageBox("In here you can turn ON/OFF events that Mantella tracks. The player and NPC events will  be sent to the AI")
         debug.MessageBox("Player events are things like the player does like picking up objects, sleeping, sitting, firing their weapon, getting hit, chaning locations, etc.")
@@ -1254,7 +1354,7 @@ Function    showEventTrackingTutorial()
     endif
 EndFunction
 
-Function    showConversationTimeoutTutorial()
+Function    doConversationTimeoutTutorial()
     if tutorialActivated && showConversationTimeoutTutorial
         debug.MessageBox("In here you can set how long Mantella will stay in listening mode before timing out.")
         debug.MessageBox("Consider increasing the value if you often see the 'HTTP Timeout' notification after periods of silence.")
