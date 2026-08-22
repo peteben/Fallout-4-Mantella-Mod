@@ -16,13 +16,13 @@ Faction Property MantellaFunctionModeFaction Auto
 Faction Property MantellaFunctionWhoIsSourceTargeting Auto
 FormList Property Participants auto
 Quest Property MantellaConversationParticipantsQuest auto
-SPELL Property MantellaIsTalkingSpell Auto
+SPELL Property MantellaIsTalkingSpell Auto  ;;Unused
 ;MantellaEquipmentDescriber Property EquipmentDescriber auto
 
-Spell Property MantellaIsUsingItem auto ;Used to track if a NPC is using attempting to use spell that is used a signal to signal that the NPC is using an item
+Spell Property MantellaIsUsingItem auto ;Used to track if a NPC is using attempting to use spell that is used a signal to signal that the NPC is using an item  ;;Unused
 ;bool Property UseSimpleTextField = true auto
-Potion Property StimpackItem auto
-Potion Property RadawayItem auto
+Potion Property StimpackItem auto  ;;Unused
+Potion Property RadawayItem auto  ;;Unused
 Quest Property MantellaNPCCollectionQuest Auto 
 RefCollectionAlias Property MantellaNPCCollection  Auto
 ReferenceAlias Property Narrator Auto
@@ -132,7 +132,7 @@ Function OnLoadGame()
     ;Debug.TraceUser("MC", "OnLoadGame finished" )
 EndFunction
 
-Function TestFunction()
+Function TestFunction()  ;;Unused (not called anywhere in these 5 scripts)
     Debug.TraceUser("MC", "Test!")
 EndFunction
 
@@ -983,7 +983,7 @@ EndFunction
 ; Action: Reload conversation ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-function TriggerReloadConversation()
+function TriggerReloadConversation()  ;;Unused (not called anywhere in these 5 scripts)
     AddExtraRequestAction(mConsts.ACTION_RELOADCONVERSATION)
 endFunction
 
@@ -1006,7 +1006,7 @@ endFunction
 ;            Utils            ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Actor function GetActorByName(string actorName)
+Actor function GetActorByName(string actorName)  ;;Unused (not called anywhere in these 5 scripts)
     ; First, search conversation participants
     Actor currentActor = GetActorInConversation(actorName)
     if currentActor != None
@@ -1171,7 +1171,7 @@ Function ClearParticipants()
 EndFunction
 
 
-bool Function ContainsActor(Actor[] arrayToCheck, Actor actorCheckFor)
+bool Function ContainsActor(Actor[] arrayToCheck, Actor actorCheckFor)  ;;Unused (not called anywhere in these 5 scripts)
     int i = 0
     While i < arrayToCheck.Length
         If (arrayToCheck[i] == actorCheckFor)
@@ -1183,7 +1183,7 @@ bool Function ContainsActor(Actor[] arrayToCheck, Actor actorCheckFor)
 EndFunction
 
 
-Function PrintActorsArray(string prefix, Actor[] actors)
+Function PrintActorsArray(string prefix, Actor[] actors)  ;;Unused (not called anywhere in these 5 scripts)
     int i = 0
     string actor_message = ""
     While i < actors.Length
@@ -1194,7 +1194,7 @@ Function PrintActorsArray(string prefix, Actor[] actors)
 EndFunction
 
 
-Function PrintActorsInConversation()
+Function PrintActorsInConversation()  ;;Unused (not called anywhere in these 5 scripts)
     int i = 0
     string actor_message = ""
     While i < Participants.GetSize()
@@ -1331,6 +1331,7 @@ int Function AddCustomPCValues(int customActorValuesHandle, Actor actorToBuildCu
     return customActorValuesHandle
 EndFunction
 
+;Check for stale events in the JSON
 Function CheckInGameEvents()
     if _ingameEvents && _ingameEvents.Length > 0
         Debug.TraceUser("MC", "Building context with events: " + _ingameEvents.Length)

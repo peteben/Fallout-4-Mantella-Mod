@@ -1,7 +1,7 @@
 Scriptname MantellaEffectScript extends activemagiceffect
 
-Topic property MantellaDialogueLine auto
-GlobalVariable property MantellaWaitTimeBuffer auto
+Topic property MantellaDialogueLine auto  ;;Unused
+GlobalVariable property MantellaWaitTimeBuffer auto  ;;Unused
 MantellaRepository property repository auto
 MantellaConversation property conversation auto
 float localMenuTimer
@@ -11,7 +11,7 @@ Message property MantellaStartConversationMessage auto
 Message property MantellaActorIsInConvoMessage auto
 Keyword Property AmmoKeyword Auto Const
 Spell Property MantellaIsUsingItem auto ;Used to track if a NPC is using attempting to use spell that is used a signal to signal that the NPC is using an item
-Faction Property MantellaFunctionSourceFaction Auto
+Faction Property MantellaFunctionSourceFaction Auto  ;;Unused
 
 ;##############################################################
 ;#            Magic Effect Start and finish Event managers    #

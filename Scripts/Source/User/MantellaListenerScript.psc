@@ -14,13 +14,13 @@ Scriptname MantellaListenerScript extends ReferenceAlias
 
 Import F4SE
 
-Spell property MantellaSpell auto
+Spell property MantellaSpell auto  ;;Unused
 Actor property PlayerRef auto
 Weapon property MantellaGun auto
-Holotape property MantellaSettingsHolotape auto
+Holotape property MantellaSettingsHolotape auto  ;;Unused
 ;Quest Property MantellaActorList  Auto                  ;Radiants ; unused
-ReferenceAlias Property PotentialActor1  Auto  
-ReferenceAlias Property PotentialActor2  Auto
+ReferenceAlias Property PotentialActor1  Auto  ;;Unused
+ReferenceAlias Property PotentialActor2  Auto  ;;Unused
 MantellaRepository property repository auto
 MantellaConversation property conversation auto
 
@@ -41,7 +41,7 @@ bool itemsGiven
 Quest Property MantellaNPCCollectionQuest Auto 
 RefCollectionAlias Property MantellaNPCCollection  Auto
 Faction Property MantellaFunctionTargetFaction Auto
-Message property MantellaTutorialMessage auto
+Message property MantellaTutorialMessage auto  ;;Unused
 
 FormList property SurvivalItemsList auto 
 
@@ -186,7 +186,7 @@ Endfunction
 
 Function CheckForRadiant()
     ;Debug.traceUser("MC", "CheckFor radiant")
-    if !conversation.IsRunning()
+    if !conversation.IsRunning()                    ; Must be enabled in MCM for radiant OR approaches
         if repository.radiantEnabled
             ;Debug.traceuser("MC", "Get actorList")
             Actor [] actorlist = repository.ScanNearbyActors(repository.radiantDistance, repository.radiantQuantity)    ; user-set maximum number of participants
@@ -199,7 +199,7 @@ Function CheckForRadiant()
                 float dist = repository.NearbyActorDistance.GetValue()
                 int i = 0
                 while i < actorlist.Length
-                    Float rand = Utility.RandomFloat(0.3)
+                    Float rand = Utility.RandomFloat(0.3)       ; Random selection of actors
                     if rand > 0.5
                         talkers.Add(actorlist[i])       ; Keep
                     EndIf
@@ -256,6 +256,8 @@ Function CheckForRadiant()
                 msg += prefix + "mind"
                 conversation.AddIngameEvent(msg)
                 conversation.StartConversation(actors)
+                actors[1].SetLookAt(actors[0])
+                actors[0].SetLookAt(actors[1])
                 MantellaPlugin.SendMantellaEvent(EventInterface.EVENT_ADVANCED_ACTIONS_PREFIX + constants.ACTION_NPC_FOLLOW, actors[1],"", -1)
                 
                 ;conversation.TriggerApproachMoveAction(Actor1)
@@ -296,7 +298,7 @@ Event Ontimer(int TimerID)
             StartTimer(3000,DictionaryCleanTimer) 
             ;debug.Notification("Can't empty dictionaries because there's an ongoing conversation")
         else
-            F4SE_HTTP.clearAllDictionaries() ;This function might lead to crash, monitor if players are reporting crashes
+            MantellaPlugin.clearAllDictionaries() ;This function might lead to crash, monitor if players are reporting crashes
             StartTimer(3000,DictionaryCleanTimer) 
             ;debug.Notification("Emptying dictionaries after a long period of inactivity to prevent memory leaks")
         endif
@@ -551,11 +553,11 @@ EndEvent
 ;   Math functions  ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Float Function ConvertMeterToGameUnits(Float meter)
+Float Function ConvertMeterToGameUnits(Float meter)  ;;Unused (not called anywhere in these 5 scripts)
     Return Meter * meterUnits
 EndFunction
 
-Float Function ConvertGameUnitsToMeter(Float gameUnits)
+Float Function ConvertGameUnitsToMeter(Float gameUnits)  ;;Unused (not called anywhere in these 5 scripts)
     Return gameUnits / meterUnits
 EndFunction
 

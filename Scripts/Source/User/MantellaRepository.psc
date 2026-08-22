@@ -9,37 +9,41 @@ MantellaConstants property ConstantsScript auto
 Quest Property MantellaVisibleCollectionQuest Auto                      ; for vision hints
 RefCollectionAlias Property MantellaVisibleNPCRefCollection  Auto       ; max 10 dist 5000
 
-bool Property allowNearbyActors auto  ;;Unused
+bool Property allowNearbyActors auto
 
 Quest Property MantellaNPCCollectionQuest Auto  ;;Unused
 RefCollectionAlias Property MantellaNPCCollection  Auto         ;max 30, dist 25000  ;;Unused
 
+Quest Property NearbyActorsQuest Auto
+RefCollectionAlias Property NearbyActorsCollection Auto
+GlobalVariable Property NearbyActorDistance Auto                ;Used to parameterize NPC scan distance 
+
 
 ;endFlagMantellaConversationOne exists to prevent conversation loops from getting stuck on NPCs if Mantella crashes or interactions gets out of sync
 ;bool property endFlagMantellaConversationOne auto
-string property currentFO4version auto  ;;Unused
+string property currentFO4version auto
 bool property isFO4VR auto Conditional
 
-bool property isFlat auto  ;;Unused
+bool property isFlat auto
 
 bool property microphoneEnabled auto Conditional
-bool property useHotkeyToStartMic auto  ;;Unused
-bool property showReminderMessages auto  ;;Unused
+bool property useHotkeyToStartMic auto
+bool property showReminderMessages auto
 
-bool property radiantEnabled auto 
-int property radiantQuantity auto  ;;Unused
-float property radiantDistance auto 
+bool property radiantEnabled auto
+int property radiantQuantity auto
+float property radiantDistance auto
 float property radiantFrequency auto conditional
-bool property approachEnabled auto  ;;Unused
-int property triggerRatio auto  ;;Unused
+bool property approachEnabled auto
+int property triggerRatio auto
 bool property showRadiantDialogueMessages auto  ;;Unused
 
-bool property allowVanillaDialogue auto Conditional  ;;Unused
-float property dialogueExpirationTime = 48.0 auto  ;;Unused
+bool property allowVanillaDialogue auto Conditional  ;;Used by MCM and MantellaPlugin
+float property dialogueExpirationTime = 48.0 auto  ;;Used by MCM and MantellaPlugin
 
-string property playerCharacterDescription1 auto  ;;Unused
-string property playerCharacterDescription2 auto  ;;Unused
-bool property playerCharacterUsePlayerDescription2 auto  ;;Unused
+string property playerCharacterDescription1 auto
+string property playerCharacterDescription2 auto
+bool property playerCharacterUsePlayerDescription2 auto
 
 ;vision parameters
 bool property hideVisionMenu auto Conditional
@@ -54,8 +58,8 @@ String property VisionDistanceArray auto
 ;function calling parameters
 bool property hideFunctionMenu auto Conditional
 bool property allowFunctionCalling auto Conditional
-Quest Property MantellaFunctionNPCCollectionQuest Auto                          ; Unused
-RefCollectionAlias Property MantellaFunctionNPCCollection  Auto                 ; Unused
+Quest Property MantellaFunctionNPCCollectionQuest Auto                          ;;Unused
+RefCollectionAlias Property MantellaFunctionNPCCollection  Auto                 ;;Unused
 
 Actor[] Property MantellaFunctionInferenceActorList  Auto               ;is this really necessary?
 String Property MantellaFunctionInferenceActorNamesList  Auto
@@ -96,36 +100,36 @@ bool property playerTrackingOnItemAdded auto Conditional
 bool property playerTrackingOnItemRemoved auto Conditional
 bool property playerTrackingOnSurvivalItemAdded auto Conditional  ;;Unused
 bool property playerTrackingOnSurvivalItemRemoved auto Conditional  ;;Unused
-bool property playerTrackingOnHit auto Conditional  ;;Unused
-bool property playerTrackingOnLocationChange auto Conditional  ;;Unused
+bool property playerTrackingOnHit auto Conditional
+bool property playerTrackingOnLocationChange auto Conditional
 bool property playerTrackingOnObjectEquipped auto Conditional
 bool property playerTrackingOnObjectUnequipped auto Conditional
 bool property playerTrackingOnSit auto Conditional
 bool property playerTrackingOnGetUp auto Conditional
-bool property playerTrackingFireWeapon auto Conditional  ;;Unused
-bool property playerTrackingRadiationDamage auto Conditional  ;;Unused
-bool property playerTrackingSleep auto Conditional  ;;Unused
-bool property playerTrackingCripple auto Conditional  ;;Unused
-bool property playerTrackingHealTeammate auto Conditional  ;;Unused
+bool property playerTrackingFireWeapon auto Conditional
+bool property playerTrackingRadiationDamage auto Conditional
+bool property playerTrackingSleep auto Conditional
+bool property playerTrackingCripple auto Conditional
+bool property playerTrackingHealTeammate auto Conditional
 
 bool property allowTrackPlayerState auto Conditional
-bool property playerTrackingOnTimeChange auto  ;;Unused
-bool property playerTrackingOnWeatherChange auto  ;;Unused
+bool property playerTrackingOnTimeChange auto
+bool property playerTrackingOnWeatherChange auto
 
 
-int property worldID auto  ;;Unused
+int property worldID auto
 
 ;variables below for Mantella Target tracking
-bool property targetTrackingItemAdded auto 
+bool property targetTrackingItemAdded auto
 bool property targetTrackingItemRemoved auto
-bool property targetTrackingOnHit auto  ;;Unused
-bool property targetTrackingOnCombatStateChanged auto  ;;Unused
+bool property targetTrackingOnHit auto
+bool property targetTrackingOnCombatStateChanged auto
 bool property targetTrackingOnObjectEquipped auto
 bool property targetTrackingOnObjectUnequipped auto
 bool property targetTrackingOnSit auto
 bool property targetTrackingOnGetUp auto
-bool property targetTrackingCompleteCommands auto  ;;Unused
-bool property targetTrackingGiveCommands auto  ;;Unused
+bool property targetTrackingCompleteCommands auto
+bool property targetTrackingGiveCommands auto
 
 
 ;variables below are to prevent game listener events from firing too often
@@ -148,12 +152,12 @@ ActorValue property RadsAV auto
 float radiationToHealthRatio = 0.229
 Actor property CrosshairActor auto
 int CleanupconversationTimer=2
-int property HttpPort auto  ;;Unused
+int property HttpPort auto
 
 ;Callback variables for SimpleTextField
 ScriptObject CBscript =  none
 string CBfunction
-bool Property isFirstConvo = true auto  ;;Unused
+bool Property isFirstConvo = true auto
 
 ;tutorial variables
 bool property tutorialActivated auto Conditional  ;;Unused
@@ -175,17 +179,17 @@ bool property unregisteredkeys = false auto
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Event OnInit()
-    reinitializeVariables()    
+    reinitializeVariables()
 EndEvent
 
 
-Function ResetEventSpamBlockers()  ;;Unused (not called anywhere in this script)
+Function ResetEventSpamBlockers()
     EventFireWeaponSpamBlocker=false
     WeaponFiredCount=0
     EventRadiationDamageSpamBlocker=false
 Endfunction
 
-Function OnLoadGame()  ;;Unused (not called anywhere in this script)  ;;Called from OnPlayerLoadGame() on a player-alias script elsewhere in the mod
+Function OnLoadGame()  ;;Called from OnPlayerLoadGame() on a player-alias script elsewhere in the mod
     if !unregisteredkeys
         int I = 8
         While i <= 260
@@ -196,7 +200,7 @@ Function OnLoadGame()  ;;Unused (not called anywhere in this script)  ;;Called f
         unregisteredkeys = true
     EndIf
 
-    ;Form acQuest = Game.GetFormFromFile(0x05E000, "Mantella.esp") 
+    ;Form acQuest = Game.GetFormFromFile(0x05E000, "Mantella.esp")
     ;Debug.TraceUser("MC", "NearbyActors " +  NearbyActorsQuest)
     ;Quest NearbyActorsVar = acQuest as Quest
     ;Debug.TraceUser("MC", "QuestVar " + NearbyActorsVar)
@@ -207,7 +211,7 @@ Function OnLoadGame()  ;;Unused (not called anywhere in this script)  ;;Called f
 EndFunction
 
 
-Function StopConversations()                ;; Used by MCM  ;;Unused (not called anywhere in this script)
+Function StopConversations()                ;; Used by MCM
     Debug.TraceUser("MC", "StopConversation")
     If (conversation.IsRunning())
         conversation.EndConversation()
@@ -216,13 +220,13 @@ Function StopConversations()                ;; Used by MCM  ;;Unused (not called
     EndIf
 EndFunction
 
-Function RestartMantellaExe()               ;Used by MCM ;;Unused (not called anywhere in this script)
+Function RestartMantellaExe()               ;Used by MCM
     Debug.notification("Attempting to restart Mantella.exe")
-    MantellaPlugin.LaunchMantellaExe() 
+    MantellaPlugin.LaunchMantellaExe()
 Endfunction
 
 Event Ontimer( int TimerID)
-    if TimerID==CleanupconversationTimer 
+    if TimerID==CleanupconversationTimer
         ;debug.notification("checking if conversation is still running")
         if conversation.IsRunning() ;attempts to make a hard reset of the conversation if it's still going on for some reason
              ;previous conversation detected, forcing conversation to end.
@@ -266,7 +270,7 @@ EndFunction
 
 
 
-Function togglePlayerItemEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (not called anywhere in this script)
+Function togglePlayerItemEventTracking(bool bswitch)    ;Used by MCM
     ;Player tracking variables below
     if bswitch
         Debug.notification("Player item pickup/drop event tracking is now ON")
@@ -278,7 +282,7 @@ Function togglePlayerItemEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (
 EndFunction
 
 
-Function togglePlayerEquipEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (not called anywhere in this script)
+Function togglePlayerEquipEventTracking(bool bswitch)    ;Used by MCM
     ;Player tracking variables below
     if bswitch
         Debug.notification("Player item equip/unequip event tracking is now ON")
@@ -289,7 +293,7 @@ Function togglePlayerEquipEventTracking(bool bswitch)    ;Used by MCM  ;;Unused 
     playerTrackingOnObjectUnequipped = bswitch
 EndFunction
 
-Function togglePlayerSitEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (not called anywhere in this script)
+Function togglePlayerSitEventTracking(bool bswitch)    ;Used by MCM
     ;Player tracking variables below
     if bswitch
         Debug.notification("Player sitting or using workbenches event tracking is now ON")
@@ -301,25 +305,25 @@ Function togglePlayerSitEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (n
 EndFunction
 
 
-Function toggleTargetItemEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (not called anywhere in this script)
+Function toggleTargetItemEventTracking(bool bswitch)    ;Used by MCM
     ;Player tracking variables below
     targetTrackingItemAdded = bswitch
     targetTrackingItemRemoved = bswitch
 EndFunction
 
-Function toggleTargetEquipEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (not called anywhere in this script)
+Function toggleTargetEquipEventTracking(bool bswitch)    ;Used by MCM
     ;Player tracking variables below
     targetTrackingOnObjectEquipped = bswitch
     targetTrackingOnObjectUnequipped = bswitch
 EndFunction
 
-Function toggleTargetOnSitEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (not called anywhere in this script)
+Function toggleTargetOnSitEventTracking(bool bswitch)    ;Used by MCM
     ;Player tracking variables below
     targetTrackingOnSit = bswitch
     targetTrackingOnGetUp = bswitch
 EndFunction
 
-Function toggleAllowAggro(bool bswitch)  ;;Unused (not called anywhere in this script)
+Function toggleAllowAggro(bool bswitch)  ;;Unused (not called anywhere in these 5 scripts)
     allowActionAggro = bswitch
     if bswitch
         Debug.notification("NPCs are now allowed to aggro")
@@ -328,11 +332,11 @@ Function toggleAllowAggro(bool bswitch)  ;;Unused (not called anywhere in this s
     endif
 EndFunction
 
-Function toggleAllowFollow(bool bswitch)  ;;Unused (not called anywhere in this script)
+Function toggleAllowFollow(bool bswitch)  ;;Unused (not called anywhere in these 5 scripts)
     allowFollow = bswitch
 EndFunction
 
-Function toggleActionInventory(bool bswitch)  ;;Unused (not called anywhere in this script)
+Function toggleActionInventory(bool bswitch)  ;;Unused (not called anywhere in these 5 scripts)
     allowActionInventory = bswitch
 EndFunction
 
@@ -341,7 +345,7 @@ Function toggleAllowNPCsStayInPlace(bool bswitch)
 EndFunction
 
 
-Function toggleAllowVision(bool bswitch)  ;;Unused (not called anywhere in this script)
+Function toggleAllowVision(bool bswitch)  ;;Unused (not called anywhere in these 5 scripts)
     allowVision = bswitch
     if bswitch
         Debug.notification("Vision analysis is now ON")
@@ -350,11 +354,11 @@ Function toggleAllowVision(bool bswitch)  ;;Unused (not called anywhere in this 
     endif
 EndFunction
 
-Function toggleAllowFunctionCalling(bool bswitch)  ;;Unused (not called anywhere in this script)
+Function toggleAllowFunctionCalling(bool bswitch)  ;;Unused (not called anywhere in these 5 scripts)
     allowFunctionCalling = bswitch
     if allowFunctionCalling
         ;toggle NPC Stay in Place as well since function calling depends on it.
-        toggleAllowNPCsStayInPlace(true)  
+        toggleAllowNPCsStayInPlace(true)
     endif
     if bswitch
         Debug.notification("Function Calling is now ON")
@@ -363,7 +367,7 @@ Function toggleAllowFunctionCalling(bool bswitch)  ;;Unused (not called anywhere
     endif
 EndFunction
 
-Function toggleAllowVisionHints(bool bswitch)  ;;Unused (not called anywhere in this script)
+Function toggleAllowVisionHints(bool bswitch)  ;;Unused (not called anywhere in these 5 scripts)
     allowVisionHints = bswitch
     if bswitch
         Debug.notification("Vision hints are now ON")
@@ -372,7 +376,7 @@ Function toggleAllowVisionHints(bool bswitch)  ;;Unused (not called anywhere in 
     endif
 EndFunction
 
-Function setActivatePerk(bool enable)    ;Used by MCM  ;;Unused (not called anywhere in this script)
+Function setActivatePerk(bool enable)    ;Used by MCM
     Actor PlayerRef = Game.GetPlayer()
     Debug.Notification("setActivatePerk " + enable)
     hasActivatePerk = enable
@@ -383,7 +387,7 @@ Function setActivatePerk(bool enable)    ;Used by MCM  ;;Unused (not called anyw
     Endif
 EndFunction
 
-Function startConversationKey()    ;Used by MCM  ;;Unused (not called anywhere in this script)
+Function startConversationKey()    ;Used by MCM
     if allowCrosshairTracking
         int actorID = MantellaPlugin.GetLastCrosshairActorID()
         Debug.TraceUser("MC", "actorID " + actorID)
@@ -402,7 +406,7 @@ Function startConversationKey()    ;Used by MCM  ;;Unused (not called anywhere i
             if distanceFromConversationTarget<1500
                 ; if actor not already loaded or player is interrupting radiant dialogue
                 bool bIsPlayerInConversation = conversation.IsPlayerInConversation()
-                
+
                 if !isTargetInConversation
                     debug.notification("Attempting to start conversation with "+actorName)
                     MantellaSpell.cast(Game.GetPlayer(), CrosshairActor)
@@ -419,21 +423,21 @@ Function startConversationKey()    ;Used by MCM  ;;Unused (not called anywhere i
     EndIf
 EndFunction
 
-   
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   Vision functions    ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Function GenerateMantellaVision()  ;;Unused (not called anywhere in this script)
+Function GenerateMantellaVision()
     hasPendingVisionCheck=true
-    MantellaPlugin.TakeScreenShot("Mantella_Vision.jpg", 0) 
+    MantellaPlugin.TakeScreenShot("Mantella_Vision.jpg", 0)
     if allowVisionHints
         ScanCellForActorsFilteredLOS()
-    endif   
+    endif
 EndFunction
 
-bool Function checkAndUpdateVisionPipeline()  ;;Unused (not called anywhere in this script)
+bool Function checkAndUpdateVisionPipeline()
     ;automatically triggers to false to allow Camera and Spell to send the vision value only once per exchange.
     if allowVision || hasPendingVisionCheck
         hasPendingVisionCheck=false
@@ -451,7 +455,7 @@ EndFunction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;Get list of nearby actors not involved in current conversation
-Actor[] Function ScanNearbyActors(Float maxDist, int maxActors = 5)  ;;Unused (not called anywhere in this script)
+Actor[] Function ScanNearbyActors(Float maxDist, int maxActors = 5)
     ;Debug.TraceUser("MC", "Scan dist: " + maxDist + " count: " + maxActors)
     Float savedDistance = NearbyActorDistance.GetValue()
     NearbyActorDistance.SetValue(maxDist)     ;temporarly change the value for the nearbyactor scan quest
@@ -478,7 +482,7 @@ Actor[] Function ScanNearbyActors(Float maxDist, int maxActors = 5)  ;;Unused (n
     while i < nearbyActors.Length
         if conversation.IsActorInConversation(nearbyActors[i])
             nearbyActors.remove(i)
-        else                    
+        else
             i = i + 1
         Endif
     Endwhile
@@ -491,7 +495,7 @@ Actor[] Function ScanNearbyActors(Float maxDist, int maxActors = 5)  ;;Unused (n
 Endfunction
 
 
-Function ScanCellForActorsFilteredLOS() 
+Function ScanCellForActorsFilteredLOS()
     Actor playerRef = Game.GetPlayer()
     Actor[] ActorsInCell = new Actor[0]
     float[] currentDistanceArray = new float[0]
@@ -512,7 +516,7 @@ Function ScanCellForActorsFilteredLOS()
     VisionDistanceArray = currentDistanceArrayToString(currentDistanceArray)
 Endfunction
 
-Actor[] Function ScanAndReturnNearbyActors(quest QuestForScan, RefCollectionAlias RefCollectionToUse, bool addPlayerToo)  ;;Unused (not called anywhere in this script)
+Actor[] Function ScanAndReturnNearbyActors(quest QuestForScan, RefCollectionAlias RefCollectionToUse, bool addPlayerToo)
     Actor[] ActorsInCell = new Actor[0]
     QuestForScan.start()
     Utility.Wait(0.1)
@@ -530,22 +534,22 @@ Actor[] Function ScanAndReturnNearbyActors(quest QuestForScan, RefCollectionAlia
     return ActorsInCell
 Endfunction
 
-Function UpdateFunctionInferenceNPCArrays(Actor[] ActorArray)  ;;Unused (not called anywhere in this script)
+Function UpdateFunctionInferenceNPCArrays(Actor[] ActorArray)  ;;Unused (not called anywhere in these 5 scripts)
     actor playerRef = game.GetPlayer()
     Float[] currentDistanceArray = new Float[0]
-    ;String[] currentFormIDArray = new String[0] ;is this line really necessary? 
+    ;String[] currentFormIDArray = new String[0] ;is this line really necessary?
     int icount = ActorArray.Length
     int iindex = 0
-    MantellaFunctionInferenceActorList = new Actor[0] 
+    MantellaFunctionInferenceActorList = new Actor[0]
     while (iindex < icount)
         Actor Actori = ActorArray[iindex]
         float currentDistance = playerRef.GetDistance(Actori)
         MantellaFunctionInferenceActorList.add(Actori) ;is this line really necessary? Could be done in one shot out of the loop
         currentDistanceArray.add(currentDistance)
-        ;currentFormIDArray.add(currentFormID) ;is this line really necessary? 
+        ;currentFormIDArray.add(currentFormID) ;is this line really necessary?
         iindex = iindex + 1
     endwhile
-    MantellaFunctionInferenceActorNamesList=ActorsArrayToString(MantellaFunctionInferenceActorList) 
+    MantellaFunctionInferenceActorNamesList=ActorsArrayToString(MantellaFunctionInferenceActorList)
     MantellaFunctionInferenceActorDistanceList = currentDistanceArrayToString(currentDistanceArray)
     MantellaFunctionInferenceActorIDsList = ActorsArrayToFormIDString(MantellaFunctionInferenceActorList)
 Endfunction
@@ -596,18 +600,18 @@ String Function ActorsArrayToFormIDString (Actor[] ActorArray)
     return StringOutput
 Endfunction
 
-Function resetVisionHintsArrays()  ;;Unused (not called anywhere in this script)
+Function resetVisionHintsArrays()
     ActorsInCellArray=""
     VisionDistanceArray = ""
 Endfunction
 
-Function resetFunctionInferenceNPCArrays()  ;;Unused (not called anywhere in this script)
+Function resetFunctionInferenceNPCArrays()  ;;Unused (not called anywhere in these 5 scripts)
     MantellaFunctionInferenceActorNamesList=""
     MantellaFunctionInferenceActorDistanceList=""
     MantellaFunctionInferenceActorIDsList=""
 Endfunction
 
-Actor Function getActorFromArray(string targetID, actor[] actorarray)  ;;Unused (not called anywhere in this script)
+Actor Function getActorFromArray(string targetID, actor[] actorarray)  ;;Unused (not called anywhere in these 5 scripts)
     int i = 0
     int convertedTargetID = targetID as int
     While i < actorarray.Length
@@ -621,7 +625,7 @@ Actor Function getActorFromArray(string targetID, actor[] actorarray)  ;;Unused 
 Endfunction
 
 
-Function DispelAllMantellaMagicEffectsFromActors(Actor[] ActorArray)  ;;Unused (not called anywhere in this script)
+Function DispelAllMantellaMagicEffectsFromActors(Actor[] ActorArray)
     int i=0
     While i < ActorArray.Length
         Actor actorToDispel = ActorArray[i]
@@ -630,8 +634,8 @@ Function DispelAllMantellaMagicEffectsFromActors(Actor[] ActorArray)  ;;Unused (
     EndWhile
 Endfunction
 
-Function RemoveFactionFromActors(Actor[] ActorArray, faction FactionToRemove)  ;;Unused (not called anywhere in this script)
-    ;This function is mostly used to remove NPCs from the MantellaFunctionTargetFaction 
+Function RemoveFactionFromActors(Actor[] ActorArray, faction FactionToRemove)
+    ;This function is mostly used to remove NPCs from the MantellaFunctionTargetFaction
     int i=0
     While i < ActorArray.Length
         Actor actorToDispel = ActorArray[i]
@@ -647,7 +651,7 @@ Endfunction
 
 string lastPlayerState
 
-string function constructPlayerState()  ;;Unused (not called anywhere in this script)
+string function constructPlayerState()
     If !allowTrackPlayerState
         return ""
     EndIf
@@ -657,42 +661,42 @@ string function constructPlayerState()  ;;Unused (not called anywhere in this sc
     int playerStatePositiveCount=0
     Actor playerRef = Game.GetPlayer()
     if playerRef.IsInPowerArmor()
-        playerStateArray[playerStatePositiveCount]="in power armor"  
+        playerStateArray[playerStatePositiveCount]="in power armor"
         playerStatePositiveCount+=1
     endif
     if playerRef.IsOverEncumbered()
-        playerStateArray[playerStatePositiveCount]="overencumbered"  
+        playerStateArray[playerStatePositiveCount]="overencumbered"
         playerStatePositiveCount+=1
     endif
     if playerRef.IsSneaking()
-        playerStateArray[playerStatePositiveCount]="sneaking"  
+        playerStateArray[playerStatePositiveCount]="sneaking"
         playerStatePositiveCount+=1
     endif
     if playerRef.IsBleedingOut()
-        playerStateArray[playerStatePositiveCount]="bleeding out"  
+        playerStateArray[playerStatePositiveCount]="bleeding out"
         playerStatePositiveCount+=1
     endif
     PlayerRadFactoredHealth = getRadFactoredPercentHealth(playerRef)
     PlayerRadiationPercent = getRadPercent(playerRef)
 
     if 0.9 > PlayerRadFactoredHealth && PlayerRadFactoredHealth >= 0.7
-        playerStateArray[playerStatePositiveCount]="lightly wounded"  
+        playerStateArray[playerStatePositiveCount]="lightly wounded"
         playerStatePositiveCount+=1
     ElseIf 0.7 > PlayerRadFactoredHealth && PlayerRadFactoredHealth >= 0.4
-        playerStateArray[playerStatePositiveCount]="moderately wounded" 
+        playerStateArray[playerStatePositiveCount]="moderately wounded"
         playerStatePositiveCount+=1
-    ElseIf 0.4 > PlayerRadFactoredHealth 
-        playerStateArray[playerStatePositiveCount]="heavily wounded" 
+    ElseIf 0.4 > PlayerRadFactoredHealth
+        playerStateArray[playerStatePositiveCount]="heavily wounded"
         playerStatePositiveCount+=1
     endif
     if PlayerRadiationPercent > 0.15 && PlayerRadiationPercent <= 0.3
-        playerStateArray[playerStatePositiveCount]="lightly irradiated"  
+        playerStateArray[playerStatePositiveCount]="lightly irradiated"
         playerStatePositiveCount+=1
     ElseIf PlayerRadiationPercent > 0.3 && PlayerRadiationPercent <= 0.6
-        playerStateArray[playerStatePositiveCount]="moderately irradiated" 
+        playerStateArray[playerStatePositiveCount]="moderately irradiated"
         playerStatePositiveCount+=1
-    ElseIf 0.6 < PlayerRadiationPercent 
-        playerStateArray[playerStatePositiveCount]="heavily irradiated" 
+    ElseIf 0.6 < PlayerRadiationPercent
+        playerStateArray[playerStatePositiveCount]="heavily irradiated"
         playerStatePositiveCount+=1
     endif
 
@@ -713,10 +717,10 @@ string function constructPlayerState()  ;;Unused (not called anywhere in this sc
     endwhile
     ; Add the last entry with a different separator if there is more than one entry
     If playerStatePositiveCount > 1
-        playerState += " & " 
+        playerState += " & "
         playerState+= playerStateArray[playerStatePositiveCount - 1]
     EndIf
-    
+
 
     ;debug.notification(playerState)
     if playerStatePositiveCount>0 && lastPlayerState != playerState
@@ -741,7 +745,7 @@ endfunction
 
 float function getRadFactoredPercentHealth(actor currentActor)
     float radFactoredPercentHealth= currentActor.getvalue(HealthAV)/getRadFactoredMaxHealth(currentActor)
-  
+
     return radFactoredPercentHealth
 endfunction
 
@@ -754,7 +758,7 @@ endfunction
 ;Since MantellaQuest has only a single script, no confusion occurs and
 ;we just call the requested function from here
 
-Function TextInputCB(string text)  ;;Unused (not called anywhere in this script)  ;;Used indirectly via SimpleTextField.Open callback string, not a direct call
+Function TextInputCB(string text)  ;;Used indirectly via SimpleTextField.Open callback string, not a direct call
     var[] _args = new var[1]
     _args[0] = text
     CBscript.CallFunctionNoWait(CBfunction,_args)
@@ -763,7 +767,7 @@ EndFunction
 Function GetTextInput(ScriptObject akReceiver, string asFunctionName, string asTitle = "", string asText = "")
     CBscript = akReceiver
     CBfunction = asFunctionName
-    SimpleTextField.Open(self as ScriptObject, "TextInputCB", asTitle, asText)   
+    SimpleTextField.Open(self as ScriptObject, "TextInputCB", asTitle, asText)
 EndFunction
 
 ; string function SUPF4SEformatText(string TextToFormat)
@@ -775,7 +779,7 @@ EndFunction
 ;Calls the SimpleTextField menu to get text input from the player, which will then call back to
 ;the appropriate SetPlayerResponse...Input function below depending on the type of input requested (dialogue response vs game event log)
 
-function GetPlayerTextInput(string entrytype)  ;;Unused (not called anywhere in this script)
+function GetPlayerTextInput(string entrytype)  ;;Used by MCM hotkeys (see comment above)
     ;Debug.TraceUser("MC", "GetPlayerTextInput called with entrytype: " + entrytype)
     ;disable for VR
     if !isFO4VR && conversation.IsRunning()
@@ -794,15 +798,15 @@ endFunction
 ;   LLM Function Calling Functions   ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; Actor[] Function GetFunctionInferenceActorList()  
+; Actor[] Function GetFunctionInferenceActorList()
 ;     return ScanAndReturnNearbyActors(MantellaFunctionNPCCollectionQuest ,MantellaFunctionNPCCollection, true)
-; Endfunction 
+; Endfunction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   Tutorial Functions   ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Function ResetTutorial()  ;;Unused (not called anywhere in this script)
+Function ResetTutorial()  ;;Unused (not called anywhere in these 5 scripts)
     while Utility.IsInMenuMode()        ; Wait for MCM
         Utility.Wait(0.5)
     EndWhile
@@ -811,10 +815,3 @@ Function ResetTutorial()  ;;Unused (not called anywhere in this script)
     ;TriggerTutorialVariables(true)
     ;doTutorialIntro()
 Endfunction
-
-
-Quest Property NearbyActorsQuest Auto
-
-RefCollectionAlias Property NearbyActorsCollection Auto   ;;Const removed here was unnecessary - not the actual cause of the earlier null (confirmed working either way)
-
-GlobalVariable Property NearbyActorDistance Auto
