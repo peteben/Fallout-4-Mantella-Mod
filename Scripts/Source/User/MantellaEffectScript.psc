@@ -106,8 +106,11 @@ Function ActivateEventsFilters()
 EndFunction
 
 Function DeactivateEventsFilters()
+    Actor target = GetTargetActor()
     RemoveAllInventoryEventFilters()
-    UnregisterForAllHitEvents(GetTargetActor())
+    if target != none
+        UnregisterForAllHitEvents(target)
+    EndIf
 EndFunction
 
 

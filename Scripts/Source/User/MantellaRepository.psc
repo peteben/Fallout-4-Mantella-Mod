@@ -1,48 +1,45 @@
 Scriptname MantellaRepository extends Quest Conditional
 
 ;keycode properties
-int property textkeycode auto
-int property textAndVisionKeycode auto
-int property MantellaVisionKeycode auto
-int property gameEventkeycode auto
-int property startConversationkeycode auto
 
 int property MenuEventSelector auto
 MantellaConversation property conversation auto
 MantellaConstants property ConstantsScript auto
-Quest Property MantellaVisibleCollectionQuest Auto 
-RefCollectionAlias Property MantellaVisibleNPCRefCollection  Auto
-Quest Property MantellaNPCCollectionQuest Auto
-Quest Property MantellaNearbyActors Auto
-RefCollectionAlias Property MantellaNearbyActorsCollection  Auto
 
-RefCollectionAlias Property MantellaNPCCollection  Auto
+Quest Property MantellaVisibleCollectionQuest Auto                      ; for vision hints
+RefCollectionAlias Property MantellaVisibleNPCRefCollection  Auto       ; max 10 dist 5000
+
+bool Property allowNearbyActors auto  ;;Unused
+
+Quest Property MantellaNPCCollectionQuest Auto  ;;Unused
+RefCollectionAlias Property MantellaNPCCollection  Auto         ;max 30, dist 25000  ;;Unused
 
 
 ;endFlagMantellaConversationOne exists to prevent conversation loops from getting stuck on NPCs if Mantella crashes or interactions gets out of sync
 ;bool property endFlagMantellaConversationOne auto
-string property currentFO4version auto
+string property currentFO4version auto  ;;Unused
 bool property isFO4VR auto Conditional
 
-bool property isFlat auto
+bool property isFlat auto  ;;Unused
 
 bool property microphoneEnabled auto Conditional
-bool property useHotkeyToStartMic auto
-bool property showReminderMessages auto
+bool property useHotkeyToStartMic auto  ;;Unused
+bool property showReminderMessages auto  ;;Unused
 
 bool property radiantEnabled auto 
+int property radiantQuantity auto  ;;Unused
 float property radiantDistance auto 
 float property radiantFrequency auto conditional
-bool property approachEnabled auto
-int property triggerRatio auto
-bool property showRadiantDialogueMessages auto
+bool property approachEnabled auto  ;;Unused
+int property triggerRatio auto  ;;Unused
+bool property showRadiantDialogueMessages auto  ;;Unused
 
-bool property allowVanillaDialogue auto Conditional
-float property dialogueExpirationTime = 48.0 auto
+bool property allowVanillaDialogue auto Conditional  ;;Unused
+float property dialogueExpirationTime = 48.0 auto  ;;Unused
 
-string property playerCharacterDescription1 auto
-string property playerCharacterDescription2 auto
-bool property playerCharacterUsePlayerDescription2 auto
+string property playerCharacterDescription1 auto  ;;Unused
+string property playerCharacterDescription2 auto  ;;Unused
+bool property playerCharacterUsePlayerDescription2 auto  ;;Unused
 
 ;vision parameters
 bool property hideVisionMenu auto Conditional
@@ -57,14 +54,15 @@ String property VisionDistanceArray auto
 ;function calling parameters
 bool property hideFunctionMenu auto Conditional
 bool property allowFunctionCalling auto Conditional
-Quest Property MantellaFunctionNPCCollectionQuest Auto 
-RefCollectionAlias Property MantellaFunctionNPCCollection  Auto
-Actor[] Property MantellaFunctionInferenceActorList  Auto ;is this really necessary?
+Quest Property MantellaFunctionNPCCollectionQuest Auto                          ; Unused
+RefCollectionAlias Property MantellaFunctionNPCCollection  Auto                 ; Unused
+
+Actor[] Property MantellaFunctionInferenceActorList  Auto               ;is this really necessary?
 String Property MantellaFunctionInferenceActorNamesList  Auto
 String Property MantellaFunctionInferenceActorDistanceList  Auto
 String Property MantellaFunctionInferenceActorIDsList  Auto
-int property NPCAIPackageSelector auto Conditional
-bool property isAParticipantInteractingWithGroundItems auto conditional
+int property NPCAIPackageSelector auto Conditional  ;;Unused
+bool property isAParticipantInteractingWithGroundItems auto conditional  ;;Unused
 ;MantellaFunctionSourceFaction values
 ;-1 = default state
 ;0 = wait
@@ -74,9 +72,9 @@ bool property isAParticipantInteractingWithGroundItems auto conditional
 ;4 = use item (item must be specified below)
 ;5 = follow player
 ;6 = use spell (skyrim only)
-int property NPCAIItemToUseSelector auto Conditional
+int property NPCAIItemToUseSelector auto Conditional  ;;Unused
 ;1 = stimpak
-int property NPCAIItemToLootSelector auto Conditional
+int property NPCAIItemToLootSelector auto Conditional  ;;Unused
 ;0 = any
 ;1 = weapon
 ;2 = armor
@@ -96,36 +94,38 @@ bool property hasActivatePerk auto
 ;variables below for Player game event tracking
 bool property playerTrackingOnItemAdded auto Conditional
 bool property playerTrackingOnItemRemoved auto Conditional
-bool property playerTrackingOnHit auto Conditional
-bool property playerTrackingOnLocationChange auto Conditional
+bool property playerTrackingOnSurvivalItemAdded auto Conditional  ;;Unused
+bool property playerTrackingOnSurvivalItemRemoved auto Conditional  ;;Unused
+bool property playerTrackingOnHit auto Conditional  ;;Unused
+bool property playerTrackingOnLocationChange auto Conditional  ;;Unused
 bool property playerTrackingOnObjectEquipped auto Conditional
 bool property playerTrackingOnObjectUnequipped auto Conditional
 bool property playerTrackingOnSit auto Conditional
 bool property playerTrackingOnGetUp auto Conditional
-bool property playerTrackingFireWeapon auto Conditional
-bool property playerTrackingRadiationDamage auto Conditional
-bool property playerTrackingSleep auto Conditional
-bool property playerTrackingCripple auto Conditional
-bool property playerTrackingHealTeammate auto Conditional
+bool property playerTrackingFireWeapon auto Conditional  ;;Unused
+bool property playerTrackingRadiationDamage auto Conditional  ;;Unused
+bool property playerTrackingSleep auto Conditional  ;;Unused
+bool property playerTrackingCripple auto Conditional  ;;Unused
+bool property playerTrackingHealTeammate auto Conditional  ;;Unused
 
 bool property allowTrackPlayerState auto Conditional
-bool property playerTrackingOnTimeChange auto
-bool property playerTrackingOnWeatherChange auto
+bool property playerTrackingOnTimeChange auto  ;;Unused
+bool property playerTrackingOnWeatherChange auto  ;;Unused
 
 
-int property worldID auto
+int property worldID auto  ;;Unused
 
 ;variables below for Mantella Target tracking
 bool property targetTrackingItemAdded auto 
 bool property targetTrackingItemRemoved auto
-bool property targetTrackingOnHit auto
-bool property targetTrackingOnCombatStateChanged auto
+bool property targetTrackingOnHit auto  ;;Unused
+bool property targetTrackingOnCombatStateChanged auto  ;;Unused
 bool property targetTrackingOnObjectEquipped auto
 bool property targetTrackingOnObjectUnequipped auto
 bool property targetTrackingOnSit auto
 bool property targetTrackingOnGetUp auto
-bool property targetTrackingCompleteCommands auto
-bool property targetTrackingGiveCommands auto
+bool property targetTrackingCompleteCommands auto  ;;Unused
+bool property targetTrackingGiveCommands auto  ;;Unused
 
 
 ;variables below are to prevent game listener events from firing too often
@@ -148,28 +148,28 @@ ActorValue property RadsAV auto
 float radiationToHealthRatio = 0.229
 Actor property CrosshairActor auto
 int CleanupconversationTimer=2
-int property HttpPort auto
+int property HttpPort auto  ;;Unused
 
 ;Callback variables for SimpleTextField
 ScriptObject CBscript =  none
 string CBfunction
-bool Property isFirstConvo = true auto
+bool Property isFirstConvo = true auto  ;;Unused
 
 ;tutorial variables
-bool property tutorialActivated auto Conditional
-bool property showHolotapeSettingsTutorial auto
-bool property showHotkeysTutorial auto
-bool property showHTTPSettingsTutorial auto
-bool property showRadiantSettingsTutorial auto
-bool property showVisionSettingsTutorial auto
-bool property showNPCActionsTutorial auto
-bool property showEventTrackingTutorial auto
-bool property showConversationTimeoutTutorial auto
+bool property tutorialActivated auto Conditional  ;;Unused
+bool property showHolotapeSettingsTutorial auto  ;;Unused
+bool property showHotkeysTutorial auto  ;;Unused
+bool property showHTTPSettingsTutorial auto  ;;Unused
+bool property showRadiantSettingsTutorial auto  ;;Unused
+bool property showVisionSettingsTutorial auto  ;;Unused
+bool property showNPCActionsTutorial auto  ;;Unused
+bool property showEventTrackingTutorial auto  ;;Unused
+bool property showConversationTimeoutTutorial auto  ;;Unused
 
-string property testForMCM = "MCM string" auto
-string property testForMCMhelp = "MCM help string" auto
+string property testForMCM = "MCM string" auto  ;;Unused
+string property testForMCMhelp = "MCM help string" auto  ;;Unused
 
-
+bool property unregisteredkeys = false auto
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   Game management functions and events   ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -179,35 +179,35 @@ Event OnInit()
 EndEvent
 
 
-Function ResetEventSpamBlockers()
+Function ResetEventSpamBlockers()  ;;Unused (not called anywhere in this script)
     EventFireWeaponSpamBlocker=false
     WeaponFiredCount=0
     EventRadiationDamageSpamBlocker=false
 Endfunction
 
-Function reloadKeys()
-    ;called at player load and when reinitializing variables
-    setHotkey(textkeycode, "Dialogue")
-    setHotkey(gameEventkeycode, "GameEvent")
-    setHotkey(startConversationkeycode,"StartConversation")
-    setHotkey(textAndVisionKeycode,"DialogueAndVision")
-    setHotkey(MantellaVisionKeycode,"MantellaVision")
-    conversation.RestoreSettings()                              ; Make sure Game settings are restored after a load
-Endfunction
+Function OnLoadGame()  ;;Unused (not called anywhere in this script)  ;;Called from OnPlayerLoadGame() on a player-alias script elsewhere in the mod
+    if !unregisteredkeys
+        int I = 8
+        While i <= 260
+            UnregisterForKey(i)
+            Utility.Wait(0.2)
+            I += 1
+        EndWhile
+        unregisteredkeys = true
+    EndIf
 
-Function showRadiantVars()
-    Debug.TraceUser("MC","Radiants: " + radiantEnabled + " dist:" + radiantDistance + " freq:" + radiantFrequency)
+    ;Form acQuest = Game.GetFormFromFile(0x05E000, "Mantella.esp") 
+    ;Debug.TraceUser("MC", "NearbyActors " +  NearbyActorsQuest)
+    ;Quest NearbyActorsVar = acQuest as Quest
+    ;Debug.TraceUser("MC", "QuestVar " + NearbyActorsVar)
+
+    ; MantellaNearbyActors = NearbyActorsVar
+    ;Debug.TraceUser("MC", "NearbyActorsCollection: " + NearbyActorsCollection)
+
 EndFunction
 
-Function setRadiantVars()
-    radiantEnabled = ! radiantEnabled
-    radiantDistance = 60.0
-    Debug.Notification("Radiants: " + radiantEnabled + " dist:" + radiantDistance)
-EndFunction
 
-
-
-Function StopConversations()
+Function StopConversations()                ;; Used by MCM  ;;Unused (not called anywhere in this script)
     Debug.TraceUser("MC", "StopConversation")
     If (conversation.IsRunning())
         conversation.EndConversation()
@@ -216,7 +216,7 @@ Function StopConversations()
     EndIf
 EndFunction
 
-Function RestartMantellaExe()
+Function RestartMantellaExe()               ;Used by MCM ;;Unused (not called anywhere in this script)
     Debug.notification("Attempting to restart Mantella.exe")
     MantellaPlugin.LaunchMantellaExe() 
 Endfunction
@@ -233,12 +233,8 @@ Event Ontimer( int TimerID)
  EndEvent
 
 
-Function reinitializeVariables()
+Function reinitializeVariables()            ;Used by MCM
     ;change the below this is for debug only
-    textkeycode=72                  ;H
-    gameEventkeycode=89             ;Y
-    startConversationkeycode=71     ;G
-    reloadKeys()
     radiantEnabled = true
     radiantDistance = 20
     radiantFrequency = 10
@@ -254,8 +250,8 @@ Function reinitializeVariables()
     MenuEventSelector=0
     microphoneEnabled = isFO4VR
     ConstantsScript.HTTP_PORT = 4999
-    togglePlayerEventTracking(true)
-    toggleTargetEventTracking(true)
+    ;togglePlayerEventTracking(true)
+    ;toggleTargetEventTracking(true)
     HTTPTimeOutHolotapeValue = 240
     ;Actor PlayerRef = Game.GetPlayer()
     ; If !(PlayerRef.HasPerk(ActivatePerk))
@@ -266,58 +262,11 @@ Function reinitializeVariables()
     hideVisionMenu=false
 EndFunction
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;   Toggling and setting functions   ;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-Function togglePlayerEventTracking(bool bswitch)
-    ;Player tracking variables below
-    if bswitch
-        Debug.notification("Player event tracking is now ON")
-    else
-        Debug.notification("Player event tracking is now OFF")
-    endif
-    playerTrackingOnItemAdded = bswitch
-    playerTrackingOnItemRemoved = bswitch
-    playerTrackingOnHit = bswitch
-    playerTrackingOnLocationChange = bswitch
-    playerTrackingOnObjectEquipped = bswitch
-    playerTrackingOnObjectUnequipped = bswitch
-    playerTrackingOnSit = bswitch
-    playerTrackingOnGetUp = bswitch
-    playerTrackingFireWeapon = bswitch
-    playerTrackingRadiationDamage=bswitch
-    playerTrackingSleep = bswitch
-    playerTrackingCripple = bswitch
-    playerTrackingHealTeammate = bswitch
-    playerTrackingOnTimeChange = bswitch
-    playerTrackingOnWeatherChange = bswitch
-    allowTrackPlayerState = bswitch
-EndFunction
-
-Function toggleTrackPlayerState (bool bswitch)
-    ;Player tracking variables below
-    if bswitch
-        Debug.notification("Player state tracking is now ON")
-    else
-        Debug.notification("Player state tracking is now OFF")
-    endif
-    allowTrackPlayerState = bswitch
-EndFunction
-
-Function toggleVanillaDialogue (bool bswitch)
-    ;Vanilla dialogue tracking
-    if bswitch
-        Debug.notification("Vanilla dialogue tracking is now ON")
-    else
-        Debug.notification("Vanilla dialogue tracking is now OFF")
-    endif
-    allowVanillaDialogue = bswitch
-EndFunction
 
 
 
-Function togglePlayerItemEventTracking(bool bswitch)
+
+Function togglePlayerItemEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (not called anywhere in this script)
     ;Player tracking variables below
     if bswitch
         Debug.notification("Player item pickup/drop event tracking is now ON")
@@ -328,27 +277,8 @@ Function togglePlayerItemEventTracking(bool bswitch)
     playerTrackingOnItemRemoved = bswitch
 EndFunction
 
-Function togglePlayerHitEventTracking(bool bswitch)
-    ;Player tracking variables below
-    if bswitch
-        Debug.notification("Player getting hit event tracking is now ON")
-    else
-        Debug.notification("Player getting hit event tracking is now OFF")
-    endif
-    playerTrackingOnHit = bswitch
-EndFunction
 
-Function togglePlayerLocationChangeEventTracking(bool bswitch)
-    ;Player tracking variables below
-    if bswitch
-        Debug.notification("Player location change event tracking is now ON")
-    else
-        Debug.notification("Player location change event tracking is now OFF")
-    endif
-    playerTrackingOnLocationChange = bswitch
-EndFunction
-
-Function togglePlayerEquipEventTracking(bool bswitch)
+Function togglePlayerEquipEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (not called anywhere in this script)
     ;Player tracking variables below
     if bswitch
         Debug.notification("Player item equip/unequip event tracking is now ON")
@@ -359,7 +289,7 @@ Function togglePlayerEquipEventTracking(bool bswitch)
     playerTrackingOnObjectUnequipped = bswitch
 EndFunction
 
-Function togglePlayerSitEventTracking(bool bswitch)
+Function togglePlayerSitEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (not called anywhere in this script)
     ;Player tracking variables below
     if bswitch
         Debug.notification("Player sitting or using workbenches event tracking is now ON")
@@ -370,97 +300,26 @@ Function togglePlayerSitEventTracking(bool bswitch)
     playerTrackingOnGetUp = bswitch
 EndFunction
 
-Function togglePlayerWeaponFireEventTracking(bool bswitch)
-    ;Player tracking variables below
-    if bswitch
-        Debug.notification("Player using their weapon or melee event tracking is now ON")
-    else
-        Debug.notification("Player using their weapon or melee event tracking is now OFF")
-    endif
-    playerTrackingFireWeapon = bswitch
-EndFunction
 
-Function togglePlayerRadiationDmgEventTracking(bool bswitch)
-    ;Player tracking variables below
-    if bswitch
-        Debug.notification("Player taking radiation damage event tracking is now ON")
-    else
-        Debug.notification("Player taking radiation damage event tracking is now OFF")
-    endif
-    playerTrackingRadiationDamage=bswitch
-EndFunction
-
-Function togglePlayerSleepEventTracking(bool bswitch)
-    ;Player tracking variables below
-    if bswitch
-        Debug.notification("Player sleeping event tracking is now ON")
-    else
-        Debug.notification("Player sleeping event tracking is now OFF")
-    endif
-    playerTrackingSleep = bswitch
-EndFunction
-
-Function togglePlayerCrippleEventTracking(bool bswitch)
-    ;Player tracking variables below
-    if bswitch
-        Debug.notification("Player getting crippled event tracking is now ON")
-    else
-        Debug.notification("Player getting crippled event tracking is now OFF")
-    endif
-    playerTrackingCripple = bswitch
-EndFunction
-
-Function togglePlayerHealTeammateEventTracking(bool bswitch)
-    ;Player tracking variables below
-    if bswitch
-        Debug.notification("Player healing teammates event tracking is now ON")
-    else
-        Debug.notification("Player healing teammates event tracking is now OFF")
-    endif
-    playerTrackingHealTeammate = bswitch
-EndFunction
-
-    
-
-
-Function toggleTargetEventTracking(bool bswitch)
-    ;Target tracking variables below
-    if bswitch
-        Debug.notification("NPC in conversation  event tracking is now ON")
-    else
-        Debug.notification("NPCs in conversation event tracking is now OFF")
-    endif
-    targetTrackingItemAdded = bswitch 
-    targetTrackingItemRemoved = bswitch
-    targetTrackingOnHit = bswitch
-    targetTrackingOnCombatStateChanged = bswitch
-    targetTrackingOnObjectEquipped = bswitch
-    targetTrackingOnObjectUnequipped = bswitch
-    targetTrackingOnSit = bswitch
-    targetTrackingOnGetUp = bswitch
-    targetTrackingCompleteCommands = bswitch
-    targetTrackingGiveCommands = bswitch
-EndFunction
-
-Function toggleTargetItemEventTracking(bool bswitch)
+Function toggleTargetItemEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (not called anywhere in this script)
     ;Player tracking variables below
     targetTrackingItemAdded = bswitch
     targetTrackingItemRemoved = bswitch
 EndFunction
 
-Function toggleTargetEquipEventTracking(bool bswitch)
+Function toggleTargetEquipEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (not called anywhere in this script)
     ;Player tracking variables below
     targetTrackingOnObjectEquipped = bswitch
     targetTrackingOnObjectUnequipped = bswitch
 EndFunction
 
-Function toggleTargetOnSitEventTracking(bool bswitch)
+Function toggleTargetOnSitEventTracking(bool bswitch)    ;Used by MCM  ;;Unused (not called anywhere in this script)
     ;Player tracking variables below
     targetTrackingOnSit = bswitch
     targetTrackingOnGetUp = bswitch
 EndFunction
 
-Function toggleAllowAggro(bool bswitch)
+Function toggleAllowAggro(bool bswitch)  ;;Unused (not called anywhere in this script)
     allowActionAggro = bswitch
     if bswitch
         Debug.notification("NPCs are now allowed to aggro")
@@ -469,11 +328,11 @@ Function toggleAllowAggro(bool bswitch)
     endif
 EndFunction
 
-Function toggleAllowFollow(bool bswitch)
+Function toggleAllowFollow(bool bswitch)  ;;Unused (not called anywhere in this script)
     allowFollow = bswitch
 EndFunction
 
-Function toggleActionInventory(bool bswitch)
+Function toggleActionInventory(bool bswitch)  ;;Unused (not called anywhere in this script)
     allowActionInventory = bswitch
 EndFunction
 
@@ -481,16 +340,8 @@ Function toggleAllowNPCsStayInPlace(bool bswitch)
     allowNPCsStayInPlace = bswitch
 EndFunction
 
-Function togglemicrophoneEnabled(bool bswitch)
-    microphoneEnabled = bswitch
-    if bswitch
-        Debug.notification("Microphone is now ON")
-    else
-        Debug.notification("Microphone is now OFF")
-    endif
-EndFunction
 
-Function toggleAllowVision(bool bswitch)
+Function toggleAllowVision(bool bswitch)  ;;Unused (not called anywhere in this script)
     allowVision = bswitch
     if bswitch
         Debug.notification("Vision analysis is now ON")
@@ -499,7 +350,7 @@ Function toggleAllowVision(bool bswitch)
     endif
 EndFunction
 
-Function toggleAllowFunctionCalling(bool bswitch)
+Function toggleAllowFunctionCalling(bool bswitch)  ;;Unused (not called anywhere in this script)
     allowFunctionCalling = bswitch
     if allowFunctionCalling
         ;toggle NPC Stay in Place as well since function calling depends on it.
@@ -512,7 +363,7 @@ Function toggleAllowFunctionCalling(bool bswitch)
     endif
 EndFunction
 
-Function toggleAllowVisionHints(bool bswitch)
+Function toggleAllowVisionHints(bool bswitch)  ;;Unused (not called anywhere in this script)
     allowVisionHints = bswitch
     if bswitch
         Debug.notification("Vision hints are now ON")
@@ -521,7 +372,7 @@ Function toggleAllowVisionHints(bool bswitch)
     endif
 EndFunction
 
-Function setActivatePerk(bool enable)
+Function setActivatePerk(bool enable)    ;Used by MCM  ;;Unused (not called anywhere in this script)
     Actor PlayerRef = Game.GetPlayer()
     Debug.Notification("setActivatePerk " + enable)
     hasActivatePerk = enable
@@ -532,127 +383,7 @@ Function setActivatePerk(bool enable)
     Endif
 EndFunction
 
-
-Function ToggleActivatePerk()
-    Actor PlayerRef = Game.GetPlayer()
-    If (PlayerRef.HasPerk(ActivatePerk))
-		PlayerRef.RemovePerk(ActivatePerk)
-        hasActivatePerk = false
-        Debug.notification("Alt conversation activation option is now OFF")
-	Else
-        PlayerRef.AddPerk(ActivatePerk, False)
-        hasActivatePerk = true
-        Debug.notification("Alt conversation activation option is now ON")
-	EndIf
-EndFunction
-
-Function SetVisionResolution(string resolution)
-    visionResolution = resolution
-    Debug.notification("Vision resolution is now "+resolution)
-EndFunction
-
-Function SetVisionResize(int resizeResolution)
-    visionResize = resizeResolution
-    Debug.notification("Vision images will now be resized to "+visionResize)
-EndFunction
-
-Function SetHTTPTimeoutInMinutes(int inputValue)
-    HTTPTimeOutHolotapeValue = (inputValue*120)
-    ;Debug.notification("Conversation timeout value now set to "+inputValue+" minutes")
-EndFunction
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;   Pipboy Management    ;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-Function listMenuState(String aMenu)
-    if aMenu=="Main_Settings"
-        if !(Game.GetPlayer().HasPerk(ActivatePerk))
-            debug.notification("Alt conversation start option is OFF")
-        else
-            debug.notification("Alt conversation start option is ON")
-        endif
-        doMainSettingsTutorial()
-    elseif aMenu=="Radiant"
-        doRadiantSettingsTutorial()
-    elseif aMenu=="HTTP_Settings"
-        debug.notification("The HTTP port is currently "+ConstantsScript.HTTP_PORT)
-        doHTTPTutorial()
-    elseif aMenu=="Hotkeys"
-        if textkeycode!=0
-            Debug.notification("Current text response hotkey is "+textkeycode)
-        Else
-            Debug.notification("Current text response hotkey is unassigned")
-        endif
-        if gameEventkeycode!=0
-            Debug.notification("Current custom game event input hotkey is "+gameEventkeycode)
-        Else
-            Debug.notification("Current custom game event input hotkey is unassigned")
-        endif
-        if startConversationkeycode!=0
-            Debug.notification("Current start conversation hotkey is "+startConversationkeycode)
-        Else
-            Debug.notification("Current start conversation hotkey is unassigned")
-        endif
-        if textAndVisionKeycode!=0
-            Debug.notification("Current text response and vision hotkey is "+textAndVisionKeycode)
-        Else
-            Debug.notification("Current text response and vision hotkey is unassigned")
-        endif
-        if MantellaVisionKeycode!=0
-            Debug.notification("Current Mantella Vision (screenshot) hotkey is "+MantellaVisionKeycode)
-        Else
-            Debug.notification("Current Mantella Vision (screenshot) hotkey is unassigned")
-        endif
-        doHotkeysTutorial()
-    elseif aMenu=="Events"
-        if playerTrackingOnItemAdded
-            Debug.notification("Player events are being tracked by Mantella")
-        else
-            Debug.notification("Player events are NOT being tracked by Mantella")
-        endif
-        if targetTrackingItemAdded
-            Debug.notification("NPCs events are being tracked by Mantella")
-        else
-            Debug.notification("NPCs events are NOT being tracked by Mantella")
-        endif
-        doEventTrackingTutorial()
-    elseif aMenu=="Vision"
-        debug.notification("Vision resolution is set to "+visionResolution)
-        debug.notification("Images will be resized to "+visionResize)
-        doVisionSettingsTutorial()
-    elseif aMenu=="Conversation_timeout"
-        doConversationTimeoutTutorial()
-    elseif aMenu=="NPC_Actions"    
-        doNPCActionsTutorial()
-    endif
-EndFunction
-
-Event OnMenuOpenCloseEvent(string asMenuName, bool abOpening)
-    if (asMenuName== "PipboyMenu") && MenuEventSelector==1 && !abOpening ;This triggers if the player chooses to change the text input hotkey
-	    OpenHotkeyPrompt("playerInputTextHotkey")
-    elseif (asMenuName== "PipboyMenu") && MenuEventSelector==2 && !abOpening ;This triggers if the player chooses to stop all conversations
-        StopConversations()
-        debug.notification("Attempting to stop all conversations")
-        UnregisterForMenuOpenCloseEvent("PipboyMenu")
-    elseif (asMenuName== "PipboyMenu") && MenuEventSelector==3 && !abOpening ;This triggers if the player chooses to change the HTTP port
-        Open_HTTP_Port_Prompt()
-    elseif(asMenuName== "PipboyMenu") && MenuEventSelector==4 && !abOpening
-	    OpenHotkeyPrompt("gameEventHotkey")  
-    elseif(asMenuName== "PipboyMenu") && MenuEventSelector==5 && !abOpening
-	    OpenHotkeyPrompt("startConversationHotKey")  
-    elseif(asMenuName== "PipboyMenu") && MenuEventSelector==6 && !abOpening
-	    OpenHotkeyPrompt("playerInputTextAndVisionHotkey")     
-    elseif(asMenuName== "PipboyMenu") && MenuEventSelector==7 && !abOpening
-	    OpenHotkeyPrompt("playerInputMantellaVisionHotkey")    
-    elseif(asMenuName== "PipboyMenu") && MenuEventSelector==8 && !abOpening
-	    ResetTutorial()
-        UnregisterForMenuOpenCloseEvent("PipboyMenu")
-    endif
-endEvent
-
-Function startConversationKey()
+Function startConversationKey()    ;Used by MCM  ;;Unused (not called anywhere in this script)
     if allowCrosshairTracking
         int actorID = MantellaPlugin.GetLastCrosshairActorID()
         Debug.TraceUser("MC", "actorID " + actorID)
@@ -688,223 +419,13 @@ Function startConversationKey()
     EndIf
 EndFunction
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;   Hotkey functions    ;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-Event Onkeydown(int keycode)
-    bool menuMode = MantellaPlugin.isMenuModeActive()
-    Debug.TraceUser("MC", "Onkeydown " + keycode)
-
-    if !menuMode
-        if keycode == startConversationkeycode
-            if allowCrosshairTracking
-                ; float [] Actorxyz = MantellaPlugin.GetLastActorCoords()
-                ; CrosshairActor = Game.FindClosestActor(Actorxyz[0], Actorxyz[1], Actorxyz[2], 20.0)
-                int actorID = MantellaPlugin.GetLastCrosshairActorID()
-                Debug.TraceUser("MC", "actorID " + actorID)
-                if actorID == 0
-                    return
-                Endif
-                CrosshairActor = Game.GetForm(actorID) as Actor
-                Debug.Notification("Crosshair actor is: " + CrosshairActor.GetDisplayName())
-            endif
-            if CrosshairActor != none
-                String actorName = CrosshairActor.GetDisplayName()
-                bool isTargetInConversation = conversation.IsActorInConversation(CrosshairActor)
-                float distanceFromConversationTarget = Game.GetPlayer().GetDistance(CrosshairActor)
-
-                if distanceFromConversationTarget<1500
-                    ; if actor not already loaded or player is interrupting radiant dialogue
-                    bool bIsPlayerInConversation = conversation.IsPlayerInConversation()
-                    
-                    if !isTargetInConversation
-                        debug.notification("Attempting to start conversation with "+actorName)
-                        MantellaSpell.cast(Game.GetPlayer(), CrosshairActor)
-                    ElseIf !bIsPlayerInConversation
-                        debug.notification("Adding player to radiant conversation with "+actorName)
-                        MantellaSpell.cast(CrosshairActor, Game.GetPlayer())
-                    else
-                        debug.notification("Displaying conversation menu for "+actorName)
-                        MantellaSpell.cast(Game.GetPlayer(), CrosshairActor)
-                    endif
-                    Utility.Wait(0.5)
-
-                endif
-            EndIf
-        Endif
-
-        if keycode == MantellaVisionKeycode
-            GenerateMantellaVision()
-        endif
-        If conversation.IsRunning() 
-            if (keycode == textAndVisionKeycode )
-                conversation.GetPlayerTextInput("playerResponseTextAndVisionEntry")
-            elseif (keycode == textkeycode )
-                conversation.GetPlayerTextInput("playerResponseTextEntry")
-            ElseIf keycode == gameEventkeycode
-                conversation.GetPlayerTextInput("gameEventEntry")
-            EndIf
-        Endif
-
-        
-    EndIf
-Endevent
-
-function setHotkey(int keycode, string keyType)
-    if keyType=="Dialogue"
-        unRegisterForKey(textkeycode)
-        textkeycode = keycode
-        ;RegisterForKey(textkeycode)
-    elseif keyType=="GameEvent"
-        unRegisterForKey(gameEventkeycode)
-        gameEventkeycode = keycode
-        ;RegisterForKey(gameEventkeycode)
-    elseif keyType=="StartConversation"
-        unRegisterForKey(startConversationkeycode)
-        startConversationkeycode = keycode
-        ;RegisterForKey(startConversationkeycode)
-    elseif keyType=="DialogueAndVision"
-        unRegisterForKey(textAndVisionKeycode)
-        textAndVisionKeycode = keycode
-        ;RegisterForKey(textAndVisionKeycode)
-    elseif keyType=="MantellaVision"
-        unRegisterForKey(MantellaVisionKeycode)
-        MantellaVisionKeycode = keycode
-        ;RegisterForKey(MantellaVisionKeycode)
-    endif
-endfunction
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;   Crosshair functions    ;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-Function RegisterForOnCrosshairRefChange()
-    ;disable for VR
-    if !isFO4VR
-        allowCrosshairTracking=true
-    endif
-EndFunction
-
-Function UnRegisterForOnCrosshairRefChange()
-    ;disable for VR
-    if !isFO4VR
-        CrosshairActor=none
-        allowCrosshairTracking=false
-    endif
-EndFunction
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;   Textinput menu functions    ;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-function OpenHotkeyPrompt(string entryType)
-    ;disable for VR
-    if !isFO4VR
-        if entryType == "playerInputTextHotkey"
-            SimpleTextField.Open(self as ScriptObject, "TIMSetDialogueHotkeyInput","Enter the DirectX Scancode for the dialogue hotkey")
-            UnregisterForMenuOpenCloseEvent("PipboyMenu")
-        elseif entryType == "gameEventHotkey"
-            SimpleTextField.Open(self as ScriptObject, "TIMGameEventHotkeyInput","Enter the DirectX Scancode for the game event hotkey")
-            UnregisterForMenuOpenCloseEvent("PipboyMenu")
-        elseif entryType == "startConversationHotKey"
-            SimpleTextField.Open(self as ScriptObject, "TIMStartConversationHotkeyInput","Enter the DirectX Scancode for the start converstion hotkey")
-            UnregisterForMenuOpenCloseEvent("PipboyMenu")
-        elseif entryType == "playerInputTextAndVisionHotkey"
-            SimpleTextField.Open(self as ScriptObject, "TIMSetDialogueAndVisionHotkeyInput","Enter the DirectX Scancode for the dialogue and vision hotkey")
-            UnregisterForMenuOpenCloseEvent("PipboyMenu")
-        elseif entryType == "playerInputMantellaVisionHotkey"
-            SimpleTextField.Open(self as ScriptObject, "TIMSetMantellaVisionHotkeyInput","Enter the DirectX Scancode for the Mantella Vision (screenshot) hotkey")
-            UnregisterForMenuOpenCloseEvent("PipboyMenu")
-        Endif
-    endif
-
-endfunction
-
-Function TIMSetDialogueHotkeyInput(string keycode)
-    ;Debug.notification("This text input was entered "+ text)
-    if !isFO4VR
-        keycode = SUPF4SEformatText(keycode)
-        if keycode == ""
-            return
-        Endif
-        setHotkey(keycode as int, "Dialogue")
-    endif
-EndFunction
-
-Function TIMGameEventHotkeyInput(string keycode)
-    ;Debug.notification("This text input was entered "+ text)
-    if !isFO4VR
-        keycode = SUPF4SEformatText(keycode)
-
-        if keycode == ""
-            return
-        Endif
-    setHotkey(keycode as int, "GameEvent")
-    endif
-EndFunction
-
-Function TIMStartConversationHotkeyInput(string keycode)
-    ;Debug.notification("This text input was entered "+ text)
-    if !isFO4VR
-        keycode = SUPF4SEformatText(keycode)
-        if keycode == ""
-            return
-        Endif
-        setHotkey(keycode as int, "StartConversation")
-        allowCrosshairTracking=true
-    endif
-EndFunction
-
-Function TIMSetDialogueAndVisionHotkeyInput(string keycode)
-    ;Debug.notification("This text input was entered "+ text)
-    if !isFO4VR    
-        keycode = SUPF4SEformatText(keycode)
-        if keycode == ""
-            return
-        Endif
-        setHotkey(keycode as int, "DialogueAndVision")
-    endif
-EndFunction
-
-Function TIMSetMantellaVisionHotkeyInput(string keycode)
-    ;Debug.notification("This text input was entered "+ text)
-    if !isFO4VR    
-        keycode = SUPF4SEformatText(keycode)
-        if keycode == ""
-            return
-        Endif
-        setHotkey(keycode as int, "MantellaVision")
-    endif
-EndFunction
-
-function Open_HTTP_Port_Prompt()
-    if !isFO4VR
-        SimpleTextField.Open(self as ScriptObject, "TIM_Set_HTTP_Port","Enter the HTTP port, use a value between 1 and 65535")
-        UnregisterForMenuOpenCloseEvent("PipboyMenu")
-    EndIf
-endfunction
-
-Function TIM_Set_HTTP_Port(string HTTP_port)
-    ;Debug.notification("This text input was entered "+ text)
-    if !isFO4VR
-        HTTP_port = SUPF4SEformatText(HTTP_port)
-        if HTTP_port ==""
-            return
-        Endif
-        ConstantsScript.HTTP_PORT = (HTTP_port as int)
-        HttpPort = ConstantsScript.HTTP_PORT
-    endif
-EndFunction
-    
+   
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   Vision functions    ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Function GenerateMantellaVision()
+Function GenerateMantellaVision()  ;;Unused (not called anywhere in this script)
     hasPendingVisionCheck=true
     MantellaPlugin.TakeScreenShot("Mantella_Vision.jpg", 0) 
     if allowVisionHints
@@ -912,7 +433,7 @@ Function GenerateMantellaVision()
     endif   
 EndFunction
 
-bool Function checkAndUpdateVisionPipeline()
+bool Function checkAndUpdateVisionPipeline()  ;;Unused (not called anywhere in this script)
     ;automatically triggers to false to allow Camera and Spell to send the vision value only once per exchange.
     if allowVision || hasPendingVisionCheck
         hasPendingVisionCheck=false
@@ -930,17 +451,42 @@ EndFunction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;Get list of nearby actors not involved in current conversation
-Actor[] Function ScanNearbyActors()
-    MantellaNearbyActors.start()
-    int countNearbyActors = MantellaNearbyActorsCollection.GetCount()
+Actor[] Function ScanNearbyActors(Float maxDist, int maxActors = 5)  ;;Unused (not called anywhere in this script)
+    ;Debug.TraceUser("MC", "Scan dist: " + maxDist + " count: " + maxActors)
+    Float savedDistance = NearbyActorDistance.GetValue()
+    NearbyActorDistance.SetValue(maxDist)     ;temporarly change the value for the nearbyactor scan quest
+
+    ;Debug.TraceUser("MC", "NearbyActorsQuest " + NearbyActorsQuest + " Collection:" + NearbyActorsCollection)
+    NearbyActorsQuest.start()
+    int countNearbyActors = NearbyActorsCollection.GetCount()
+    if countNearbyActors > maxActors
+        countNearbyActors =  maxActors
+    EndIf
+
     ;Debug.TraceUser("MC", "Scanning for nearby actors... Found " + countNearbyActors)
     Actor[] nearbyActors = new Actor[countNearbyActors]
     int i = 0
-    while (i < nearbyActors.Length)
-        nearbyActors[i] = MantellaNearbyActorsCollection.GetAt(i) as Actor
+    int len = countNearbyActors
+
+    while i < len
+        Actor act = NearbyActorsCollection.GetAt(i) as Actor
+        nearbyActors[i] = act
         i = i + 1
     endwhile
-    MantellaNearbyActors.stop()
+
+    i = 0
+    while i < nearbyActors.Length
+        if conversation.IsActorInConversation(nearbyActors[i])
+            nearbyActors.remove(i)
+        else                    
+            i = i + 1
+        Endif
+    Endwhile
+
+    ;Debug.TraceUser("MC", "Actors: " + len + " returning: " + nearbyActors.Length)
+    NearbyActorsQuest.stop()
+    NearbyActorDistance.SetValue(savedDistance)     ;restore value
+
     return nearbyActors
 Endfunction
 
@@ -966,7 +512,7 @@ Function ScanCellForActorsFilteredLOS()
     VisionDistanceArray = currentDistanceArrayToString(currentDistanceArray)
 Endfunction
 
-Actor[] Function ScanAndReturnNearbyActors(quest QuestForScan, RefCollectionAlias RefCollectionToUse, bool addPlayerToo) 
+Actor[] Function ScanAndReturnNearbyActors(quest QuestForScan, RefCollectionAlias RefCollectionToUse, bool addPlayerToo)  ;;Unused (not called anywhere in this script)
     Actor[] ActorsInCell = new Actor[0]
     QuestForScan.start()
     Utility.Wait(0.1)
@@ -984,7 +530,7 @@ Actor[] Function ScanAndReturnNearbyActors(quest QuestForScan, RefCollectionAlia
     return ActorsInCell
 Endfunction
 
-Function UpdateFunctionInferenceNPCArrays(Actor[] ActorArray) 
+Function UpdateFunctionInferenceNPCArrays(Actor[] ActorArray)  ;;Unused (not called anywhere in this script)
     actor playerRef = game.GetPlayer()
     Float[] currentDistanceArray = new Float[0]
     ;String[] currentFormIDArray = new String[0] ;is this line really necessary? 
@@ -1050,18 +596,18 @@ String Function ActorsArrayToFormIDString (Actor[] ActorArray)
     return StringOutput
 Endfunction
 
-Function resetVisionHintsArrays()
+Function resetVisionHintsArrays()  ;;Unused (not called anywhere in this script)
     ActorsInCellArray=""
     VisionDistanceArray = ""
 Endfunction
 
-Function resetFunctionInferenceNPCArrays()
+Function resetFunctionInferenceNPCArrays()  ;;Unused (not called anywhere in this script)
     MantellaFunctionInferenceActorNamesList=""
     MantellaFunctionInferenceActorDistanceList=""
     MantellaFunctionInferenceActorIDsList=""
 Endfunction
 
-Actor Function getActorFromArray(string targetID, actor[] actorarray)
+Actor Function getActorFromArray(string targetID, actor[] actorarray)  ;;Unused (not called anywhere in this script)
     int i = 0
     int convertedTargetID = targetID as int
     While i < actorarray.Length
@@ -1075,7 +621,7 @@ Actor Function getActorFromArray(string targetID, actor[] actorarray)
 Endfunction
 
 
-Function DispelAllMantellaMagicEffectsFromActors(Actor[] ActorArray)
+Function DispelAllMantellaMagicEffectsFromActors(Actor[] ActorArray)  ;;Unused (not called anywhere in this script)
     int i=0
     While i < ActorArray.Length
         Actor actorToDispel = ActorArray[i]
@@ -1084,7 +630,7 @@ Function DispelAllMantellaMagicEffectsFromActors(Actor[] ActorArray)
     EndWhile
 Endfunction
 
-Function RemoveFactionFromActors(Actor[] ActorArray, faction FactionToRemove)
+Function RemoveFactionFromActors(Actor[] ActorArray, faction FactionToRemove)  ;;Unused (not called anywhere in this script)
     ;This function is mostly used to remove NPCs from the MantellaFunctionTargetFaction 
     int i=0
     While i < ActorArray.Length
@@ -1099,7 +645,13 @@ Endfunction
 ;   Player and NPC state reporting   ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-string function constructPlayerState()
+string lastPlayerState
+
+string function constructPlayerState()  ;;Unused (not called anywhere in this script)
+    If !allowTrackPlayerState
+        return ""
+    EndIf
+
     String[] playerStateArray = new String[10]
     string playerState = "The player is "
     int playerStatePositiveCount=0
@@ -1167,7 +719,8 @@ string function constructPlayerState()
     
 
     ;debug.notification(playerState)
-    if playerStatePositiveCount>0
+    if playerStatePositiveCount>0 && lastPlayerState != playerState
+        lastPlayerState = playerState
         return playerState
     Else
         return ""
@@ -1201,7 +754,7 @@ endfunction
 ;Since MantellaQuest has only a single script, no confusion occurs and
 ;we just call the requested function from here
 
-Function TextInputCB(string text)
+Function TextInputCB(string text)  ;;Unused (not called anywhere in this script)  ;;Used indirectly via SimpleTextField.Open callback string, not a direct call
     var[] _args = new var[1]
     _args[0] = text
     CBscript.CallFunctionNoWait(CBfunction,_args)
@@ -1213,151 +766,55 @@ Function GetTextInput(ScriptObject akReceiver, string asFunctionName, string asT
     SimpleTextField.Open(self as ScriptObject, "TextInputCB", asTitle, asText)   
 EndFunction
 
-string function SUPF4SEformatText(string TextToFormat)
-    TextToFormat = MantellaPlugin.StringRemoveWhiteSpace(TextToFormat)
-    return TextToFormat
-endfunction
+; string function SUPF4SEformatText(string TextToFormat)
+;     TextToFormat = MantellaPlugin.StringRemoveWhiteSpace(TextToFormat)
+;     return TextToFormat
+; endfunction
 
+;Called by MCM hotkeys
+;Calls the SimpleTextField menu to get text input from the player, which will then call back to
+;the appropriate SetPlayerResponse...Input function below depending on the type of input requested (dialogue response vs game event log)
+
+function GetPlayerTextInput(string entrytype)  ;;Unused (not called anywhere in this script)
+    ;Debug.TraceUser("MC", "GetPlayerTextInput called with entrytype: " + entrytype)
+    ;disable for VR
+    if !isFO4VR && conversation.IsRunning()
+        if entryType == "playerResponseTextEntry" ; && conversation._does_accept_player_input
+            GetTextInput(conversation as ScriptObject,"SetPlayerResponseTextInput","Enter Mantella text dialogue")
+        elseif entryType == "gameEventEntry"
+            GetTextInput(conversation as ScriptObject, "SetGameEventTextInput","Enter Mantella a new game event log")
+        elseif entryType == "playerResponseTextAndVisionEntry"
+            GetTextInput(conversation as ScriptObject, "SetPlayerResponseTextAndVisionInput","Enter Mantella text dialogue")
+        endif
+    endif
+endFunction
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   LLM Function Calling Functions   ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Actor[] Function GetFunctionInferenceActorList()  
-    return ScanAndReturnNearbyActors(MantellaFunctionNPCCollectionQuest ,MantellaFunctionNPCCollection, true)
-Endfunction 
+; Actor[] Function GetFunctionInferenceActorList()  
+;     return ScanAndReturnNearbyActors(MantellaFunctionNPCCollectionQuest ,MantellaFunctionNPCCollection, true)
+; Endfunction 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   Tutorial Functions   ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Function ResetTutorial()
-    while Utility.IsInMenuMode()
+Function ResetTutorial()  ;;Unused (not called anywhere in this script)
+    while Utility.IsInMenuMode()        ; Wait for MCM
         Utility.Wait(0.5)
     EndWhile
-    Debug.Notification("Reset tutorial")
-    TriggerTutorialVariables(true)
-    doTutorialIntro()
+    ;Debug.Notification("Reset tutorial")
+    Utility.Wait(2.0)
+    ;TriggerTutorialVariables(true)
+    ;doTutorialIntro()
 Endfunction
 
-Function TriggerTutorialVariables(bool aBool)
-    tutorialActivated=aBool
-    showHolotapeSettingsTutorial=aBool
-    showHotkeysTutorial=aBool
-    isFirstConvo = aBool
-    showHTTPSettingsTutorial = aBool
-    showRadiantSettingsTutorial = aBool
-    showVisionSettingsTutorial = aBool
-    showNPCActionsTutorial = aBool
-    showEventTrackingTutorial = aBool
-    showConversationTimeoutTutorial = aBool
-Endfunction
 
-function doTutorialIntro()
-    if tutorialActivated
-        Debug.MessageBox("Mantella is now active. Start a conversation using one of the following options:")
-        Utility.Wait(0.2)
-        If !isFO4VR
-            Debug.MessageBox("Approach an NPC and use the 'CONVERSATION' option ('R' key)")
-        else
-            Debug.MessageBox("Approach an NPC and use the 'CONVERSATION' option ('Grab' key)")
-        endif
-        Utility.Wait(0.2)
-        If !isFO4VR
-            Debug.MessageBox("OR: Approach an NPC and use the 'start conversation' key (currently 'G'). You can also use the Mantella Gun to shoot an NPC to start the conversation (the gun does no damage).")
-            Utility.Wait(0.2)
-        Endif
-        Debug.MessageBox("Use the Mantella settings holotape to change key assignments or other options. Mantella will use the keyboard by default but you can turn on the microphone in your holotape.")
-        Utility.Wait(0.2)
-        Debug.MessageBox("We recommend that you quick save and reload the game to enable all of Mantella's function then try opening the Mantella Settings holotape. It should be in your Pipboy inventory under 'Misc'.")
-        Utility.Wait(0.2)
-    endif
-Endfunction
+Quest Property NearbyActorsQuest Auto
 
-function doMainSettingsTutorial()
-    if tutorialActivated && showHolotapeSettingsTutorial
-        debug.MessageBox("In this menu you can completely stop all conversations or reset the Mantella.exe. Do this if you're experiencing synchronization issues.")
-        debug.MessageBox("You can toggle on or off the perk that allows the extra conversation option. Do this if you're experiencing conflicts with other mods such as Quick Trade or What's your name.")
-        debug.MessageBox("You can turn the microphone on or off here. You can only use text responses if you turn the microphone OFF")
-        debug.MessageBox("Finally you can reset all the settings and hotkeys to their default values with 'Reset default settings'.")
-        showHolotapeSettingsTutorial=false
-    endif
-Endfunction
+RefCollectionAlias Property NearbyActorsCollection Auto   ;;Const removed here was unnecessary - not the actual cause of the earlier null (confirmed working either way)
 
-Function doHotkeysTutorial()
-    if tutorialActivated && showHotKeysTutorial && !isFO4VR
-        debug.MessageBox("To change the hotkeys you have to enter scan codes numbers. For example :'H' is 72. 'G' is 71. The complete list is in the holotape options of this submenu. ")
-        debug.MessageBox("Text response will only work if the microphone is OFF.")
-        debug.MessageBox("The initiate conversation button works by tracking the player crossshair and will only work if the crosshair event tracking is on (see event submenu)")
-        debug.MessageBox("Game events are discrete blocks of information that you can send to the AI without having it respond immediately. You can use it to narrate game events out of character.")
-        debug.MessageBox("Text/Vision response will take a screenshot and send your response to the LLM at the same time (require vision to be turned on and a vision capable LLM AI)")
-        debug.MessageBox("Mantella Vision(screenshot) immedidately takes a screenshot, but that screenshot is only sent to the AI when you respond.")
-        showHotkeysTutorial=false
-    endif
-EndFunction
-
-Function doHTTPTutorial()
-    if tutorialActivated && showHTTPSettingsTutorial
-        debug.MessageBox("Here you can change the HTTP port for Mantella. This is only necessary if you're having firewall or using other programs that require port 4999")
-        debug.MessageBox("You have to select a number between 1 and 65535. High numbers have a better chance of being unused.")
-        debug.MessageBox("Keep in mind that this setting needs to be set in the Mantella.exe as well under the 'Others' tab in the advanced option.")
-        showHTTPSettingsTutorial=false
-    endif
-EndFunction
-
-Function    doRadiantSettingsTutorial()
-    if tutorialActivated && showRadiantSettingsTutorial
-        debug.MessageBox("Turn ON radiant dialogue to have NPCs start conversations between themselves at set intervals. Keep in mind this will use tokens from your AI subscription service")
-        debug.MessageBox("You can jump in a radiant conversation at any time by using the usual conversation activation methods.")
-        debug.MessageBox("you can adjust the frequency and distance at which at conversation will occuer (distance based on player and nearest eligible NPCs).")
-        showRadiantSettingsTutorial=false
-    endif
-EndFunction
-
-Function    doVisionSettingsTutorial()
-    if tutorialActivated && showVisionSettingsTutorial
-        debug.MessageBox("These options allow the AI to see what you see. You must be using a vision enabled LLM for this to work (refer to the description of the model in the Mantella.exe web interface)")
-        debug.MessageBox("Turning on automatic vision will send a screenshot of the player view  to the AI at the time of the player's response.")
-        debug.MessageBox("To accelerate response speed and dimish token costs, try reducing the resolution of the image or choosing a lower resize value.")
-        debug.MessageBox("Visions hints will send the names of the NPCs in the player's field of view at the time of the image capture to help it roleplay better.")
-        if !isFO4VR
-            debug.MessageBox("You can also set hotkeys to capture images to send to the AI in the hotkey submenu.")
-        endif
-        showVisionSettingsTutorial = false
-    endif
-EndFunction
-
-Function    doNPCActionsTutorial()
-    if tutorialActivated && showNPCActionsTutorial
-        debug.MessageBox("You can choose multiple additional actions in this tab.")
-        debug.MessageBox("'NPC aggro' allow NPCs to get offended by your comments which means they might attack you. You can then beg for forgiveness to get them to stop.")
-        debug.MessageBox("'NPC follow' allow NPCs to become your teammates for the duration fo the conversation.")
-        debug.MessageBox("'NPC inventory' allow NPCs to show you their inventory when trading is being discussed.")
-        debug.MessageBox("NPC aggro, follow, openInventory all need to be enabled in Mantella.exe to work as intended, see the 'other' tab in the browser interface.")
-        debug.MessageBox("NPC stay in place does exactly what the name implies, it prevents the NPC from moving during the conversation (will not impact followers)")
-        showNPCActionsTutorial = false
-    endif
-EndFunction
-
-Function    doEventTrackingTutorial()
-    if tutorialActivated && showEventTrackingTutorial
-        debug.MessageBox("In here you can turn ON/OFF events that Mantella tracks. The player and NPC events will  be sent to the AI")
-        debug.MessageBox("Player events are things like the player does like picking up objects, sleeping, sitting, firing their weapon, getting hit, chaning locations, etc.")
-        debug.MessageBox("NPCs events are similar and will apply to the NPCs in the conversation. They also include entering combat & commands given to the NPC through the FO4 interface.")
-        debug.MessageBox("Mantella will only track a maximum number of actions. This can be adjusted in the web interface.")
-        debug.MessageBox("Considering turning event tracking OFF if you notice the AI getting confused by the game's feedback.")
-        if !isFO4VR
-            debug.MessageBox("The Crosshair tracking is used for the Initiate Conversation hotkey. It needs to be turned on for that key to work.")
-        endif
-        showEventTrackingTutorial = false
-    endif
-EndFunction
-
-Function    doConversationTimeoutTutorial()
-    if tutorialActivated && showConversationTimeoutTutorial
-        debug.MessageBox("In here you can set how long Mantella will stay in listening mode before timing out.")
-        debug.MessageBox("Consider increasing the value if you often see the 'HTTP Timeout' notification after periods of silence.")
-        showConversationTimeoutTutorial = false
-    endif
-EndFunction
+GlobalVariable Property NearbyActorDistance Auto

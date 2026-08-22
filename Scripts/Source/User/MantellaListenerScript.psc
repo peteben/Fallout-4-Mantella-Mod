@@ -13,16 +13,20 @@ Scriptname MantellaListenerScript extends ReferenceAlias
 ; ---------------------------------------------
 
 Import F4SE
-Import F4SE_HTTP
+
 Spell property MantellaSpell auto
 Actor property PlayerRef auto
 Weapon property MantellaGun auto
 Holotape property MantellaSettingsHolotape auto
-Quest Property MantellaActorList  Auto  
+;Quest Property MantellaActorList  Auto                  ;Radiants ; unused
 ReferenceAlias Property PotentialActor1  Auto  
 ReferenceAlias Property PotentialActor2  Auto
 MantellaRepository property repository auto
 MantellaConversation property conversation auto
+
+MantellaConstants Property Constants Auto Const Mandatory
+MantellaInterface Property EventInterface Auto Const Mandatory
+
 Keyword Property AmmoKeyword Auto Const
 ;GlobalVariable property MantellaRadiantEnabled auto
 ;GlobalVariable property MantellaRadiantDistance auto
@@ -39,7 +43,9 @@ RefCollectionAlias Property MantellaNPCCollection  Auto
 Faction Property MantellaFunctionTargetFaction Auto
 Message property MantellaTutorialMessage auto
 
-bool OLDRadiants = true
+FormList property SurvivalItemsList auto 
+
+bool OLDRadiants = false const
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   Initialization events and functions  ;
@@ -64,22 +70,17 @@ Event OnPlayerTeleport()
 EndEvent
 
 Function TryToGiveItems()
-	Worldspace PlayerWorldspace = Game.GetPlayer().GetWorldspace()
-	if(PlayerWorldspace == PrewarWorldspace || PlayerWorldspace == None)
-		;RegisterForPlayerTeleport() ;not nessary to interact with this anymore as it's handled in LoadMantellaEvents()
-	else
 		;UnregisterForPlayerTeleport()  ;not nessary to interact with this anymore as it's handled in LoadMantellaEvents()
-        showAndResolveTutorialMessage()
-        repository.doTutorialIntro()
-        repository.allowCrosshairTracking = true
+        ;showAndResolveTutorialMessage()
+        ;repository.doTutorialIntro()
+        repository.allowCrosshairTracking = !repository.isFO4VR
 		PlayerRef.AddItem(MantellaGun, 1, false)
-        PlayerRef.AddItem(MantellaSettingsHolotape, 1, false)
+        ;PlayerRef.AddItem(MantellaSettingsHolotape, 1, false)
         If !(PlayerRef.HasPerk(repository.ActivatePerk))
             PlayerRef.AddPerk(repository.ActivatePerk, False)
         Endif
         itemsGiven=true
         StartTimer(repository.radiantFrequency,RadiantFrequencyTimerID)   
-	endif
 EndFunction
 
 
@@ -88,16 +89,16 @@ EndFunction
 ;   Message and tutorial resolution  ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-function showAndResolveTutorialMessage()
-    int aButton=MantellaTutorialMessage.show()
-    if aButton==1 ;player chose no
-        repository.TriggerTutorialVariables(false)
-        Debug.MessageBox("You can reactivate the tutorial at any time by using the holotape in main settings.")
-    elseif aButton==0 ;player chose yes
-        repository.TriggerTutorialVariables(true)
+; function showAndResolveTutorialMessage()
+;     int aButton=MantellaTutorialMessage.show()
+;     if aButton==1 ;player chose no
+;         repository.TriggerTutorialVariables(false)
+;         Debug.MessageBox("You can reactivate the tutorial at any time by using the holotape in main settings.")
+;     elseif aButton==0 ;player chose yes
+;         repository.TriggerTutorialVariables(true)
         
-    endif 
-Endfunction
+;     endif 
+; Endfunction
 
 
 
@@ -107,13 +108,16 @@ Endfunction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Event OnPlayerLoadGame()
+    Debug.OpenUserLog("MC")
     LoadMantellaEvents()
     conversation.OnLoadGame()
-EndEvent
+    repository.OnLoadGame()
+    EndEvent
 
 Function LoadMantellaEvents()
+    Debug.TraceUser("MC","LoadMantellaEvents")
     conversation.SetGameRefs()
-    repository.reloadKeys()
+    ;repository.reloadKeys()
     registerForPlayerEvents()
     ;Will clean up all all conversation loops if they're still occuring
     ; repository.endFlagMantellaConversationOne = True    
@@ -167,67 +171,95 @@ bool Function IsF4SEProperlyInstalled()
 EndFunction
 
 Function registerForPlayerEvents()
-        ;resets AddInventoryEventFilter, necessary for OnItemAdded & OnItemRemoved to work properl
-        RemoveAllInventoryEventFilters()
-        AddInventoryEventFilter(none) 
-        ;Register for player sleep events
-        RegisterForPlayerSleep()
-        ;resets RegisterForHitEvent & RegisterForRadiationDamageEvent at load, necessary for Onhit to work properly
-        UnregisterForAllHitEvents()
-        RegisterForHitEvent(PlayerRef)
-        UnregisterForAllRadiationDamageEvents()
-        RegisterForRadiationDamageEvent(PlayerRef)
-        RegisterForPlayerTeleport()
+    ;resets AddInventoryEventFilter, necessary for OnItemAdded & OnItemRemoved to work properl
+    RemoveAllInventoryEventFilters()
+    AddInventoryEventFilter(none) 
+    ;Register for player sleep events
+    RegisterForPlayerSleep()
+    ;resets RegisterForHitEvent & RegisterForRadiationDamageEvent at load, necessary for Onhit to work properly
+    UnregisterForAllHitEvents()
+    RegisterForHitEvent(PlayerRef)
+    UnregisterForAllRadiationDamageEvents()
+    RegisterForRadiationDamageEvent(PlayerRef)
+    RegisterForPlayerTeleport()
 Endfunction
 
 Function CheckForRadiant()
+    ;Debug.traceUser("MC", "CheckFor radiant")
     if !conversation.IsRunning()
-        if repository.radiantEnabled || repository.approachEnabled
-            Actor [] actorlist = repository.ScanNearbyActors()
+        if repository.radiantEnabled
+            ;Debug.traceuser("MC", "Get actorList")
+            Actor [] actorlist = repository.ScanNearbyActors(repository.radiantDistance, repository.radiantQuantity)    ; user-set maximum number of participants
             int randomPct = Utility.RandomInt(1, 100)
+            int actorsFound = actorlist.Length
 
-            if OLDRadiants 
-                MantellaActorList.start()
-                Actor Actor1 = PotentialActor1.GetReference() as Actor
-                Actor Actor2 = PotentialActor2.GetReference() as Actor
+            if actorsFound > 1 && (!repository.approachEnabled || randomPct <= repository.triggerRatio)
+                ; Radiant conversation
+                Actor [] talkers =  new Actor [0]
+                float dist = repository.NearbyActorDistance.GetValue()
+                int i = 0
+                while i < actorlist.Length
+                    Float rand = Utility.RandomFloat(0.3)
+                    if rand > 0.5
+                        talkers.Add(actorlist[i])       ; Keep
+                    EndIf
+                    i = i + 1
+                EndWhile
+                if talkers.Length > 1           ; Need at least 2
+                    string names
+                    i = 0
+                    while i < talkers.Length
+                        names =  names + talkers[i].GetDisplayName()
+                        if i < talkers.Length
+                            names += ", "
+                        EndIf 
+                        i += 1
+                    EndWhile
 
-                ; if both actors found
-                if (Actor1 && Actor2)
-                    float distanceToClosestActor = game.getplayer().GetDistance(Actor1)
-                    float maxDistance = ConvertMeterToGameUnits(repository.radiantDistance)
-                    if distanceToClosestActor <= maxDistance
-                        String Actor1Name = Actor1.getdisplayname()
-                        String Actor2Name = Actor2.getdisplayname()
-                        float distanceBetweenActors = Actor1.GetDistance(Actor2)
-
-                        ;TODO: make distanceBetweenActors customisable
-                        if (distanceBetweenActors <= 1000)
-                            ;have spell casted on Actor 1 by Actor 2
-                            MantellaSpell.Cast(Actor2 as ObjectReference, Actor1 as ObjectReference)
-                        else
-                            ;TODO: make this notification optional
-                            ;Debug.Notification("Radiant dialogue attempted. No NPCs available")
-                        endIf
-                    else
-                        ;TODO: make this notification optional
-                        ;Debug.Notification("Radiant dialogue attempted. NPCs too far away at " + ConvertGameUnitsToMeter(distanceToClosestActor) + " meters")
-                        ;Debug.Notification("Max distance set to " + repository.radiantDistance + "m in Mantella MCM")
-                    endIf
-                else
-                    ;Debug.Notification("Actor1 " + Actor1.GetDisplayName() + " Actor2 " + Actor2.GetDisplayName())
-                    ;Debug.Notification("Radiant dialogue attempted. No NPCs available")
-                endIf
-
-                MantellaActorList.stop()
-            Else
-                ; New radiants
-
-                if repository.radiantEnabled && (!repository.approachEnabled || randomPct <= repository.triggerRatio)
-                    ; Radiant conversation
-                ElseIf repository.approachEnabled
-                    ; 
+                    Debug.TraceUser("MC", "Starting with [" + talkers.Length + "]: " + names)
+                    conversation.Start()
+                    conversation.StartConversation(talkers)
                 EndIf
-            Endif
+            ElseIf repository.approachEnabled && actorsFound > 0       ; Approach
+                ;Debug.TraceUser("MC","Approach: " + actorlist[0].GetDisplayName() )
+                Actor[] actors = new Actor[2]
+                actors[0] = PlayerRef
+                actors[1] = actorlist[0]
+
+                conversation.Start()
+                Debug.Notification(Actors[1].GetDisplayName() + " approaches...")
+                int hour =  conversation.GetCurrentHourOfDay()
+                if hour > 5 && hour < 12
+                    conversation.approachAutoResponse = "Good morning"
+                ElseIf hour > 11 && hour < 19
+                    conversation.approachAutoResponse = "Good afternoon"
+                ElseIf hour > 18 && hour <= 23
+                    conversation.approachAutoResponse = "Good evening"
+                Else
+                    conversation.approachAutoResponse = "Good night"
+                Endif
+                conversation.approachAutoResponse += ", " + actorlist[0].GetDisplayName()
+                Debug.TraceUser("MC", "starting approach conversation")
+                Debug.TraceUser("MC", "Adding approach event")
+                int sex = actors[1].GetActorBase().GetSex()
+                string prefix
+
+                if sex ==1
+                    prefix = "her "
+                ElseIf sex == 0
+                    prefix = "his "
+                Else
+                    prefix = "it's "
+                Endif
+
+                string msg = Actors[1].GetDisplayName() + " approaches " + PlayerRef.GetDisplayName() + " with something on "
+                msg += prefix + "mind"
+                conversation.AddIngameEvent(msg)
+                conversation.StartConversation(actors)
+                MantellaPlugin.SendMantellaEvent(EventInterface.EVENT_ADVANCED_ACTIONS_PREFIX + constants.ACTION_NPC_FOLLOW, actors[1],"", -1)
+                
+                ;conversation.TriggerApproachMoveAction(Actor1)
+            EndIf
         endIf
     endIf
 EndFunction
@@ -235,11 +267,22 @@ EndFunction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;   Timer management  ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool conversationActive
 
-Event Ontimer( int TimerID)
-   ;debug.notification("timer "+RadiantFrequencyTimerID+" finished counting from "+repository.radiantFrequency)
+Event Ontimer(int TimerID)
+   ;debug.notification("timer " +TimerID)
     if TimerID==RadiantFrequencyTimerID
-        CheckForRadiant()
+        if conversation.IsRunning()
+            ;Debug.TraceUSer("MC", "IsRunning")
+            conversationActive = true
+        else
+            ;Debug.TraceUSer("MC", "NotRunning " + conversationActive)
+            if !conversationActive      ; Ensure we wait at least radiantFrequency seconds, max 2x radiantFrequency
+                CheckForRadiant()
+            Endif
+            conversationActive = false
+        Endif
+
         StartTimer(repository.radiantFrequency,RadiantFrequencyTimerID)   
     elseif TimerID==CleanupconversationTimer 
         if conversation.IsRunning() ;attempts to make a hard reset of the conversation if it's still going on for some reason
@@ -266,8 +309,12 @@ EndEvent
 
 Event OnItemAdded(Form akBaseItem, int aiItemCount, ObjectReference akItemReference, ObjectReference akSourceContainer)
     if Repository.playerTrackingOnItemAdded
+        string desc = akBaseItem as String
         string sourceName = akSourceContainer.getbaseobject().getname()
-        if sourceName != "Power Armor" ;to prevent gameevent spam from the player entering power armors
+        bool isHC = SurvivalItemsList.Find(akBaseItem) >= 0                 ; Survival item (hunger, thirst, etc.)
+        ;Debug.TraceUser("MC", "Survival item ["+isHC+"]: " + desc)
+
+        if sourceName != "Power Armor" &&  !isHC    ;to prevent gameevent spam from the player entering power armors and survival items
             string itemName = akBaseItem.GetName()
             string itemPickedUpMessage = ""
             if itemName == "Powered Armor Frame" 
@@ -286,8 +333,10 @@ EndEvent
 
 Event OnItemRemoved(Form akBaseItem, int aiItemCount, ObjectReference akItemReference, ObjectReference akDestContainer)
     if Repository.playerTrackingOnItemRemoved
+        bool isHC = SurvivalItemsList.Find(akBaseItem) >= 0
         string destName = akDestContainer.getbaseobject().getname()
-        if destName != "Power Armor" ;to prevent gameevent spam from the player exiting power armors 
+
+        if destName != "Power Armor" && !isHC       ;to prevent gameevent spam from the player exiting power armors 
             string itemName = akBaseItem.GetName()
             string itemDroppedMessage = ""
             if itemName == "Powered Armor Frame" 
@@ -358,16 +407,18 @@ Event OnLocationChange(Location akOldLoc, Location akNewLoc)
         if currLoc == ""
             currLoc = "Commonwealth"
         endIf
-        ;Debug.MessageBox("Current location is now " + currLoc)
+        Debug.MessageBox("Current location is now " + currLoc)
+        Debug.TraceUser("MC", "Location is now " + currLoc+ ".")
         conversation.AddIngameEvent("Current location is now " + currLoc+ ".")
     endif
 endEvent
 
 Event OnItemEquipped(Form akBaseObject, ObjectReference akReference)
     if repository.playerTrackingOnObjectEquipped
+        bool isHC = SurvivalItemsList.Find(akBaseObject) >= 0
         string itemEquipped = akBaseObject.getname()
         ;Debug.MessageBox("The player equipped " + itemEquipped)
-        if itemEquipped != "Mantella"
+        if itemEquipped != "Mantella" && !isHC
             conversation.AddIngameEvent("The player equipped " + itemEquipped + ".")
         endif
     endif
@@ -377,8 +428,9 @@ endEvent
 Event OnItemUnequipped (Form akBaseObject, ObjectReference akReference)
     if repository.playerTrackingOnObjectUnequipped
         string itemUnequipped = akBaseObject.getname()
+        bool isHC = SurvivalItemsList.Find(akBaseObject) >= 0
         ;Debug.MessageBox("The player unequipped " + itemUnequipped)
-        if itemUnequipped != "Mantella Enchantment" && itemUnequipped != "Mantella"
+        if itemUnequipped != "Mantella Enchantment" && itemUnequipped != "Mantella" && !isHC
             conversation.AddIngameEvent("The player unequipped " + itemUnequipped + ".")
         Endif
     endif
@@ -506,3 +558,4 @@ EndFunction
 Float Function ConvertGameUnitsToMeter(Float gameUnits)
     Return gameUnits / meterUnits
 EndFunction
+

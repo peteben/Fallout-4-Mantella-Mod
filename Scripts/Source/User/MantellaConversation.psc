@@ -1,4 +1,4 @@
-Scriptname MantellaConversation extends Quest hidden
+Scriptname MantellaConversation extends Quest
 
 Import F4SE
 Import Utility
@@ -80,6 +80,8 @@ string _lastSpeakerName = ""
 string _repeatingMessage = ""
 string _location = ""
 int _initialTime = 0
+string property approachAutoResponse auto  ; used for approach conversations, it's the player initial response when player talks first is set.
+bool property approachNPChasSpoken auto
 
 bool SettingsSaved = false
 bool SettingsApplied = false
@@ -130,6 +132,10 @@ Function OnLoadGame()
     ;Debug.TraceUser("MC", "OnLoadGame finished" )
 EndFunction
 
+Function TestFunction()
+    Debug.TraceUser("MC", "Test!")
+EndFunction
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;    Start new conversation   ;
@@ -145,6 +151,9 @@ function StartConversation(Actor[] actorsToStartConversationWith)
         Debug.MessageBox("Mantella conversation started! NPC will speak first.")
         EndIf
     Debug.OpenUserLog("MC")
+    ;Reset for new convo
+    ; approachAutoResponse = ""
+    approachNPChasSpoken = false
 
     int handle = MantellaPlugin.createDictionary()
     MantellaPlugin.setString(handle, mConsts.KEY_REQUESTTYPE, mConsts.KEY_REQUESTTYPE_INIT)
@@ -156,6 +165,7 @@ function StartConversation(Actor[] actorsToStartConversationWith)
 
     MantellaPlugin.setString(handle, mConsts.KEY_REQUESTTYPE, mConsts.KEY_REQUESTTYPE_STARTCONVERSATION)
     MantellaPlugin.setString(handle, mConsts.KEY_STARTCONVERSATION_WORLDID, PlayerRef.GetDisplayName() + repository.worldID)
+    Debug.TraceUser("MC", "Start conversation build context")
     BuildContext(true)
     AddCurrentActorsAndContext(handle)
 
@@ -217,44 +227,54 @@ function ContinueConversation(string nextAction, int handle)
         if (MantellaPlugin.hasKey(handle,mConsts.KEY_STARTCONVERSATION_USENARRATOR))
             _useNarrator = MantellaPlugin.getBool(handle, mConsts.KEY_STARTCONVERSATION_USENARRATOR, false) as bool
         endif
-        RequestContinueConversation()
+        RequestContinueConversation(approachAutoResponse != "")
     elseIf (nextAction == mConsts.KEY_REPLYTYPE_NPCTALK)
         ;A line of dialogue has been generated, make the relevant NPC speak it and perform the relevant actions
         int npcTalkHandle = MantellaPlugin.getNestedDictionary(handle, mConsts.KEY_REPLYTYPE_NPCTALK)
         int eventCount = _ingameEvents.Length
-        string [] ContextEventsStr = MantellaPlugin.getStringArray(_contextHandle,mConsts.KEY_CONTEXT_INGAMEEVENTS)
-        int context_event_count = ContextEventsStr.Length
-        ;Debug.TraceUser("MC", "REPLY_NPC_TALK events: " + eventCount + " cached: " + context_event_count)
-                
+
+        ;Debug.TraceUser("MC", "NPCTALK Checkingameevents")
+        CheckInGameEvents()                
         ProcessNpcSpeak(npcTalkHandle)
+        approachNPChasSpoken = true
         RequestContinueConversation(eventCount != 0)
     elseIf (nextAction == mConsts.KEY_REPLYTYPE_PLAYERTALK)
         ;The player needs to respond, either through text input or voice input depending on the player's settings
         WaitForSpecificNpcToFinishSpeaking(_lastNpcToSpeak)
 
-        If (repository.microphoneEnabled && !repository.useHotkeyToStartMic)
-            If repository.isFirstConvo
-                Debug.MessageBox("Speak slowly and clearly into your microphone when you see the 'Listening...' prompt")
-                Debug.MessageBox("Say 'goodbye' as a response to end the conversation")
-                repository.isFirstConvo = false
-            EndIf
-            Debug.Notification("Listening...")      
-            if repository.allowVision
-                repository.GenerateMantellaVision()
-            endif
-            _does_accept_player_input = True
-            sendRequestForVoiceTranscribe()
-            repository.ResetEventSpamBlockers()  ;reset spam blockers to allow the Listener Script to pick up on those again
-        Else    
-            ;Text input, wait for the player to press the 'H' key to open the text input menu and send the input to Mantella
-            If repository.isFirstConvo
-                Debug.MessageBox("Use the 'H' key to enter your response")
-                Debug.MessageBox("You can also use the 'Y' key to send events to the LLM")
-                Debug.MessageBox("Type 'goodbye' as a response to end the conversation")
-                repository.isFirstConvo = false
+        ;Something in approachAutoResponse means we have an NPC approaching the player
+        ;If player is expected to talk first (no autogreeting), and no NPC has spoken yet,
+        ;we feed the auto response to Mantella instead of asking for input.
+        Debug.TraceUser("MC", "autoResponse: "+ approachAutoResponse + " NPChasSpoken: " + approachNPChasSpoken)
+        if approachAutoResponse != "" && !approachNPChasSpoken
+            ;Debug.TraceUser("MC", "Auto response")
+            sendRequestForPlayerInput(approachAutoResponse, true)
+            approachAutoResponse = ""
+        else
+            If (repository.microphoneEnabled && !repository.useHotkeyToStartMic)
+                If repository.isFirstConvo
+                    Debug.MessageBox("Speak slowly and clearly into your microphone when you see the 'Listening...' prompt")
+                    Debug.MessageBox("Say 'goodbye' as a response to end the conversation")
+                    repository.isFirstConvo = false
+                EndIf
+                Debug.Notification("Listening...")      
+                if repository.allowVision
+                    repository.GenerateMantellaVision()
+                endif
+                _does_accept_player_input = True
+                sendRequestForVoiceTranscribe()
+                repository.ResetEventSpamBlockers()  ;reset spam blockers to allow the Listener Script to pick up on those again
+            Else    
+                ;Text input, wait for the player to press the 'H' key to open the text input menu and send the input to Mantella
+                If repository.isFirstConvo
+                    Debug.MessageBox("Use the 'H' key to enter your response")
+                    Debug.MessageBox("You can also use the 'Y' key to send events to the LLM")
+                    Debug.MessageBox("Type 'goodbye' as a response to end the conversation")
+                    repository.isFirstConvo = false
+                Endif
+                Debug.Notification("Awaiting player text input...")
+                _does_accept_player_input = True
             Endif
-            Debug.Notification("Awaiting player text input...")
-            _does_accept_player_input = True
             ;Execution will continue with 'GetPlayerTextInput' once player has entered their input and submitted it.
         EndIf
     elseIf (nextAction == mConsts.KEY_REQUESTTYPE_TTS) 
@@ -316,6 +336,7 @@ function RequestContinueConversation(bool updateInGameEvents = false)
 
             _waitingForActionResponse = true ; Reset for next action
             ;Debug.TraceUser("MC", "Updating in-game events for continue conversation. Current events: " + _ingameEvents.Length)
+            Debug.TraceUser("MC", "RequestContinue _ingameEvents: " + _ingameEvents.Length)
             MantellaPlugin.setStringArray(_contextHandle, mConsts.KEY_CONTEXT_INGAMEEVENTS, _ingameEvents)
             MantellaPlugin.setNestedDictionary(handle, mConsts.KEY_CONTEXT, _contextHandle)
             ClearIngameEvent()
@@ -379,6 +400,7 @@ function ProcessNpcSpeak(int handle)
         if lineToSpeak == "*" || lineToSpeak == "\"" || linetoSpeak == "'"
             return
         EndIf
+        Debug.TraceUser("MC", ">>" + lineToSpeak)
         ;string[] actions = MantellaPlugin.getStringArray(handle, mConsts.KEY_ACTOR_ACTIONS)
         int topidID = MantellaPlugin.getInt(handle, mConsts.KEY_CONTINUECONVERSATION_TOPICINFOFILE,1)
 
@@ -413,7 +435,9 @@ function NpcSpeak(Actor actorSpeaking, string lineToSay, Topic topicToUse, bool 
         Debug.TraceUser("MC", "Failed to patch topic info: " + ret)
     Endif
     if !isSpokenByNarrator
-        actorSpeaking.SetLookAt(actorToSpeakTo)
+        if actorToSpeakTo != none
+            actorSpeaking.SetLookAt(actorToSpeakTo)
+        EndIf
         AllSetLookAt(actorSpeaking)
     endif
     
@@ -660,7 +684,8 @@ function sendRequestForPlayerInput(string playerInput, bool updateContext)
         MantellaPlugin.setNestedDictionariesArray(handle, mConsts.KEY_ACTORS, handlesNpcs)
 
         if updateContext ; if context has not been refreshed recently
-            BuildContext()
+            Debug.TraceUser("MC", "sendRequestForPlayerInput BuildContext")
+            ;BuildContext()
         endIf
         MantellaPlugin.setNestedDictionary(handle, mConsts.KEY_CONTEXT, _contextHandle)
         sendHTTPRequest(handle,mConsts.HTTP_ROUTE_MAIN, mConsts.KEY_REQUESTTYPE_PLAYERINPUT)
@@ -682,34 +707,18 @@ function sendRequestForVoiceTranscribe()
     ShowRepeatingMessage("Listening...")
 endFunction
 
-;Called from repository.OnKeyDown when the player presses the hotkey to enter text input, if that setting is enabled
-;Calls the SimpleTextField menu to get text input from the player, which will then call back to
-;the appropriate SetPlayerResponse...Input function below depending on the type of input requested (dialogue response vs game event log)
-
-function GetPlayerTextInput(string entrytype)
-    ;Debug.TraceUser("MC", "GetPlayerTextInput called with entrytype: " + entrytype)
-    ;disable for VR
-    if !repository.isFO4VR && IsRunning()
-        if entryType == "playerResponseTextEntry" && _does_accept_player_input
-            repository.GetTextInput(self as ScriptObject,"SetPlayerResponseTextInput","Enter Mantella text dialogue")
-        elseif entryType == "gameEventEntry"
-            repository.GetTextInput(self as ScriptObject, "SetGameEventTextInput","Enter Mantella a new game event log")
-        elseif entryType == "playerResponseTextAndVisionEntry"
-            repository.GetTextInput(self as ScriptObject, "SetPlayerResponseTextAndVisionInput","Enter Mantella text dialogue")
-        endif
-    endif
-endFunction
-
 ; Callback function for when player text input is received for dialogue
 Function SetPlayerResponseTextInput(string text)
     ;disable for VR
-    ;Debug.TraceUser("MC", "SetPlayerResponseTextInput")
+    Debug.TraceUser("MC", "SetPlayerResponseTextInput")
     if !repository.isFO4VR
         text = MantellaPlugin.StringRemoveWhiteSpace(text)
         if text == ""
             return
         Endif
 
+        Debug.TraceUser("MC", "SetPlayerTextResponse Checkingameevents")
+        CheckInGameEvents()
         ;BuildContext() ;rebuild context to make sure it's as up to date as possible before sending player input, since text input can sometimes be slow and the context may have changed since the player was prompted for input
         _PlayerTextInput=text
         if repository.allowVision
@@ -767,6 +776,11 @@ endFunction
 
 ;OK
 function WaitForSpecificNpcToFinishSpeaking(Actor selectedNpc)
+    if selectedNpc == none
+        Debug.TraceUser("MC", "WaitforSpecificNPC is none")
+        return
+    Endif
+
     ;selectedNpc.AddSpell(MantellaIsTalkingSpell, False)
     _isTalking = true
     float maxwait = 15.0
@@ -961,7 +975,7 @@ Function AddIngameEvent(string eventText)
 EndFunction
 
 Function ClearIngameEvent()
-    ;Debug.TraceUser("MC", "Clearing " + _ingameEvents.Length + " events")
+    Debug.TraceUser("MC", "Clearing " + _ingameEvents.Length + " events")
     _ingameEvents.Clear()
 EndFunction
 
@@ -1208,8 +1222,8 @@ Function AddCurrentActorsAndContext(int handleToAddTo)
     ;Add Actors
     MantellaPlugin.setNestedDictionariesArray(handleToAddTo, mConsts.KEY_ACTORS, _actorHandles)
     ;Clear events
-    string [] empty = new string[0]
-    MantellaPlugin.setStringArray(_contextHandle, mConsts.KEY_CONTEXT_INGAMEEVENTS,empty)
+    ;string [] empty = new string[0]
+    ;MantellaPlugin.setStringArray(_contextHandle, mConsts.KEY_CONTEXT_INGAMEEVENTS,empty)      ;??
     ;add context
     MantellaPlugin.setNestedDictionary(handleToAddTo, mConsts.KEY_CONTEXT, _contextHandle)
 EndFunction
@@ -1317,6 +1331,32 @@ int Function AddCustomPCValues(int customActorValuesHandle, Actor actorToBuildCu
     return customActorValuesHandle
 EndFunction
 
+Function CheckInGameEvents()
+    if _ingameEvents && _ingameEvents.Length > 0
+        Debug.TraceUser("MC", "Building context with events: " + _ingameEvents.Length)
+        MantellaPlugin.setStringArray(_contextHandle, mConsts.KEY_CONTEXT_INGAMEEVENTS, _ingameEvents)
+    Else
+        string [] prevEvents = MantellaPlugin.getStringArray(_contextHandle, mConsts.KEY_CONTEXT_INGAMEEVENTS)
+        int prevEvLen = prevEvents.Length
+        ;Debug.TraceUser("MC", "PrevEventsLen " + prevEvLen)
+        int i = 0
+        string evstr = ""
+        while i < prevEvLen
+            evstr += prevEvents[i]
+            if i < prevEvLen - 1
+                evstr += ", "
+            EndIf
+            i += 1
+        Endwhile
+        if prevEvLen > 0
+            Debug.TraceUser("MC", "Discarding " + prevEvLen + " events: " + evstr)
+
+            string [] empty = new string[0]
+            MantellaPlugin.setStringArray(_contextHandle, mConsts.KEY_CONTEXT_INGAMEEVENTS,empty)      ;??
+        Endif
+    Endif
+EndFunction
+
 int function BuildContext(bool isConversationStart = false)
     ;Debug.TraceUser("MC", "Building context, isConversationStart: " + isConversationStart)
     _contextHandle = MantellaPlugin.createDictionary()
@@ -1341,19 +1381,19 @@ int function BuildContext(bool isConversationStart = false)
     MantellaPlugin.setInt(_contextHandle, mConsts.KEY_CONTEXT_TIME, _initialTime)
     MantellaPlugin.setFloat(_contextHandle, mConsts.KEY_CONTEXT_GAMEDAYS, Math.Floor(Utility.GetCurrentGameTime()))
 
-    if _ingameEvents && _ingameEvents.Length > 0
-        Debug.TraceUser("MC", "Building context with events: " + _ingameEvents.Length)
-        MantellaPlugin.setStringArray(_contextHandle, mConsts.KEY_CONTEXT_INGAMEEVENTS, _ingameEvents)
-   Endif
-
+    
+    Debug.TraceUser("MC", "BuildContext Checkingameevents")
+    CheckInGameEvents()
     ;? string[] past_events = deepcopy(_ingameEvents)
      ClearIngameEvent()
 
     ; Add nearby actors context for action targeting
-    int[] nearbyActorHandles = BuildNearbyActorsContext()
-    if nearbyActorHandles && nearbyActorHandles.Length > 0
-        MantellaPlugin.setNestedDictionariesArray(_contextHandle, mConsts.KEY_CONTEXT_NEARBYACTORS, nearbyActorHandles)
-    endIf
+    if repository.allowNearbyActors
+        int[] nearbyActorHandles = BuildNearbyActorsContext()
+        if nearbyActorHandles && nearbyActorHandles.Length > 0
+            MantellaPlugin.setNestedDictionariesArray(_contextHandle, mConsts.KEY_CONTEXT_NEARBYACTORS, nearbyActorHandles)
+        endIf
+    Endif
 
     ; Fallout-specific context values
     int customValuesHandle = BuildCustomContextValues()
@@ -1385,10 +1425,10 @@ EndFunction
 int[] function BuildNearbyActorsContext()
     ; Scan for nearby actors (excludes Mantella conversation participants)
 
-    Actor[] nearbyActors = repository.ScanNearbyActors()
+    Actor[] nearbyActors = repository.ScanNearbyActors(1500.0, 5)
     _cachedNearbyActors = nearbyActors
 
-    ;Debug.TraceUser("MC", "BuildNearbyActorsContext found " + nearbyActors.Length + " nearby actors.")
+    Debug.TraceUser("MC", "BuildNearbyActorsContext found " + nearbyActors.Length + " nearby actors.")
     if !nearbyActors || nearbyActors.Length == 0
         return new int[0]
     endIf
