@@ -112,10 +112,14 @@ bool property playerTrackingSleep auto Conditional
 bool property playerTrackingCripple auto Conditional
 bool property playerTrackingHealTeammate auto Conditional
 
-bool property allowTrackPlayerState auto Conditional
+bool property allowTrackPlayerState auto Conditional                ;;MCM 
 bool property playerTrackingOnTimeChange auto
 bool property playerTrackingOnWeatherChange auto
 
+int property playerReportArmor auto
+int property playerReportWeapon auto
+int property NPCreportArmor auto
+int property NPCreportWeapon auto
 
 int property worldID auto
 

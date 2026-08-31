@@ -17,7 +17,7 @@ Faction Property MantellaFunctionWhoIsSourceTargeting Auto
 FormList Property Participants auto
 Quest Property MantellaConversationParticipantsQuest auto
 SPELL Property MantellaIsTalkingSpell Auto  ;;Unused
-;MantellaEquipmentDescriber Property EquipmentDescriber auto
+
 
 Spell Property MantellaIsUsingItem auto ;Used to track if a NPC is using attempting to use spell that is used a signal to signal that the NPC is using an item  ;;Unused
 ;bool Property UseSimpleTextField = true auto
@@ -685,7 +685,7 @@ function sendRequestForPlayerInput(string playerInput, bool updateContext)
 
         if updateContext ; if context has not been refreshed recently
             Debug.TraceUser("MC", "sendRequestForPlayerInput BuildContext")
-            ;BuildContext()
+            BuildContext()
         endIf
         MantellaPlugin.setNestedDictionary(handle, mConsts.KEY_CONTEXT, _contextHandle)
         sendHTTPRequest(handle,mConsts.HTTP_ROUTE_MAIN, mConsts.KEY_REQUESTTYPE_PLAYERINPUT)
@@ -1299,9 +1299,24 @@ int function buildActorSetting(Actor actorToBuild)
     MantellaPlugin.setBool(handle, mConsts.KEY_ACTOR_ISINCOMBAT, actorToBuild.IsInCombat())    
     MantellaPlugin.setBool(handle, mConsts.KEY_ACTOR_ISENEMY, actorToBuild.getcombattarget() == playerRef)
 
-    ;TODO
-    ;EquipmentDescriber.AddEquipmentDescription(handle, actorToBuild, isPlayerCharacter, repository)
+    string armorStr = ""
+    string weaponStr = ""
+    int eqHandle = MantellaPlugin.CreateDictionary()
 
+    armorStr = EquipmentDescriber.DescribeArmor(actorToBuild)
+    if armorStr != ""
+        MantellaPlugin.setString(eqHandle, "body", armorStr)
+    Endif
+
+    weaponStr = EquipmentDescriber.DescribeWeapon(actorToBuild)
+    if weaponStr != ""
+        MantellaPlugin.setString(eqHandle, "hands", weaponStr)
+    EndIf
+
+    if armorStr != "" || weaponStr != ""
+        MantellaPlugin.setNestedDictionary(handle, "mantella_equipment", eqHandle)
+    Endif
+    
     int customActorValuesHandle = MantellaPlugin.createDictionary()
     If (isPlayerCharacter)
         AddCustomPCValues(customActorValuesHandle, actorToBuild)
@@ -1390,6 +1405,7 @@ int function BuildContext(bool isConversationStart = false)
 
     ; Add nearby actors context for action targeting
     if repository.allowNearbyActors
+        Debug.TraceUser("MC", "BuildContext BuildNearbyActors")
         int[] nearbyActorHandles = BuildNearbyActorsContext()
         if nearbyActorHandles && nearbyActorHandles.Length > 0
             MantellaPlugin.setNestedDictionariesArray(_contextHandle, mConsts.KEY_CONTEXT_NEARBYACTORS, nearbyActorHandles)
@@ -1426,7 +1442,7 @@ EndFunction
 int[] function BuildNearbyActorsContext()
     ; Scan for nearby actors (excludes Mantella conversation participants)
 
-    Actor[] nearbyActors = repository.ScanNearbyActors(1500.0, 5)
+    Actor[] nearbyActors = repository.ScanNearbyActors(repository.NearbyActorDistance.GetValue(), 5)
     _cachedNearbyActors = nearbyActors
 
     Debug.TraceUser("MC", "BuildNearbyActorsContext found " + nearbyActors.Length + " nearby actors.")
@@ -1539,3 +1555,4 @@ Function RestoreSettings()
 EndFunction
 
 
+MantellaEquipmentDescriber Property EquipmentDescriber Auto 

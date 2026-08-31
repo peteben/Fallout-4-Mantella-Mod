@@ -409,7 +409,7 @@ Event OnLocationChange(Location akOldLoc, Location akNewLoc)
         if currLoc == ""
             currLoc = "Commonwealth"
         endIf
-        Debug.MessageBox("Current location is now " + currLoc)
+        ;Debug.MessageBox("Current location is now " + currLoc)
         Debug.TraceUser("MC", "Location is now " + currLoc+ ".")
         conversation.AddIngameEvent("Current location is now " + currLoc+ ".")
     endif
